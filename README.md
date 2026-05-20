@@ -87,7 +87,7 @@ CSV or JSON rows must include:
 owner,property_address,parcel_id,signal,source,source_url,recorded_date,case_id,notes
 ```
 
-Only the first four fields are required. Use `scripts/normalize_records.py` to convert vendor/manual exports into this schema.
+Only the first four fields are structurally required. For the default daily/test run, `recorded_date` must be parseable (`YYYY-MM-DD`, `MM/DD/YYYY`, or `MM/DD/YY`) because undated records are excluded by the 10-day lookback guard. Use `scripts/normalize_records.py` to convert vendor/manual exports into this schema.
 
 ## Daily Burien Workflow
 
@@ -98,9 +98,9 @@ Only the first four fields are required. Use `scripts/normalize_records.py` to c
    python3 scripts/normalize_records.py data/raw/2026-05-20/recorder.csv data/normalized/recorder.csv
    ```
 4. Merge normalized files into `data/daily/burien-merged.csv`.
-5. Run deterministic scoring:
+5. Run deterministic scoring. The default testing window processes fewer than 100 raw records (`--max-records 99`) and ignores records older than 10 days from the accessed date (`--lookback-days 10`):
    ```bash
-   python3 scripts/run_daily.py --input data/daily/burien-merged.csv
+   python3 scripts/run_daily.py --input data/daily/burien-merged.csv --max-records 99 --lookback-days 10
    ```
 6. Validate output:
    ```bash

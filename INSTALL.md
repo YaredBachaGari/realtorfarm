@@ -27,14 +27,14 @@ If the GitHub repository is private or not created yet, copy this project direct
 ## First Local Run
 
 ```bash
-realtorfarm validate --input data/sample_records.csv
-realtorfarm hunt --input data/sample_records.csv --accessed-date 2026-05-20 --evidence
-python3 scripts/run_daily.py --input data/sample_records.csv
+realtorfarm validate --input data/sample_records.csv --accessed-date 2026-05-20 --max-records 99 --lookback-days 10
+realtorfarm hunt --input data/sample_records.csv --accessed-date 2026-05-20 --max-records 99 --lookback-days 10 --evidence
+python3 scripts/run_daily.py --input data/sample_records.csv --accessed-date 2026-05-20 --max-records 99 --lookback-days 10
 python3 scripts/validate_output.py out/burien-distressed-latest.json.txt
 ```
 
 ## Daily Cron Example
 
 ```cron
-15 6 * * * cd /path/to/realtorfarm && . .venv/bin/activate && python3 scripts/run_daily.py --input data/daily/burien-merged.csv >> logs/daily.log 2>&1
+15 6 * * * cd /path/to/realtorfarm && . .venv/bin/activate && python3 scripts/run_daily.py --input data/daily/burien-merged.csv --max-records 99 --lookback-days 10 >> logs/daily.log 2>&1
 ```

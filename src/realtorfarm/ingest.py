@@ -2,12 +2,50 @@ from __future__ import annotations
 
 import csv
 import json
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from .models import PropertyLead, SignalEvent
 from .signals import normalize_signal
 
 REQUIRED_COLUMNS = {"owner", "property_address", "parcel_id", "signal"}
+DEFAULT_MAX_RECORDS = 99
+DEFAULT_LOOKBACK_DAYS = 10
+
+
+def parse_recorded_date(value: str) -> date | None:
+    value = (value or "").strip()
+    if not value:
+        return None
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y"):
+        try:
+            return datetime.strptime(value, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def filter_records(
+    records: list[dict[str, str]],
+    *,
+    accessed: date,
+    lookback_days: int = DEFAULT_LOOKBACK_DAYS,
+    max_records: int = DEFAULT_MAX_RECORDS,
+) -> list[dict[str, str]]:
+    """Keep only recent records and cap extraction below 100 by default."""
+    if lookback_days < 0:
+        raise ValueError("lookback_days must be >= 0")
+    if max_records < 1:
+        raise ValueError("max_records must be >= 1")
+    earliest = accessed - timedelta(days=lookback_days)
+    recent: list[dict[str, str]] = []
+    for row in records:
+        recorded = parse_recorded_date(row.get("recorded_date", ""))
+        if recorded is not None and earliest <= recorded <= accessed:
+            recent.append(row)
+        if len(recent) >= max_records:
+            break
+    return recent
 
 
 def load_records(path: str | Path) -> list[dict[str, str]]:

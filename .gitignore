@@ -5,6 +5,7 @@ __pycache__/
 .ruff_cache/
 out/
 logs/
+.firecrawl/
 data/raw/
 data/normalized/
 data/daily/
