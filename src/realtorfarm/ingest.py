@@ -1,0 +1,52 @@
+from __future__ import annotations
+
+import csv
+import json
+from pathlib import Path
+
+from .models import PropertyLead, SignalEvent
+from .signals import normalize_signal
+
+REQUIRED_COLUMNS = {"owner", "property_address", "parcel_id", "signal"}
+
+
+def load_records(path: str | Path) -> list[dict[str, str]]:
+    path = Path(path)
+    if path.suffix.lower() == ".json":
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, list):
+            raise ValueError("JSON input must be a list of record objects")
+        return [{str(k): "" if v is None else str(v) for k, v in row.items()} for row in data]
+    with path.open(newline="", encoding="utf-8") as fh:
+        reader = csv.DictReader(fh)
+        missing = REQUIRED_COLUMNS - set(reader.fieldnames or [])
+        if missing:
+            raise ValueError(f"Missing required columns: {sorted(missing)}")
+        return [{k: (v or "").strip() for k, v in row.items()} for row in reader]
+
+
+def group_records(records: list[dict[str, str]]) -> list[PropertyLead]:
+    grouped: dict[tuple[str, str], PropertyLead] = {}
+    for row in records:
+        name, tier = normalize_signal(row["signal"])
+        parcel_id = row.get("parcel_id", "").strip()
+        address = row.get("property_address", "").strip()
+        owner = row.get("owner", "").strip()
+        if not parcel_id or not address:
+            raise ValueError(f"Record requires parcel_id and property_address: {row}")
+        key = (parcel_id, address.lower())
+        lead = grouped.setdefault(key, PropertyLead(owner=owner, property_address=address, parcel_id=parcel_id))
+        if owner and owner not in lead.owner:
+            lead.owner = f"{lead.owner}; {owner}" if lead.owner else owner
+        lead.events.append(
+            SignalEvent(
+                name=name, tier=tier, source=row.get("source", ""),
+                source_url=row.get("source_url", ""), recorded_date=row.get("recorded_date", ""),
+                case_id=row.get("case_id", ""), notes=row.get("notes", ""),
+            )
+        )
+    return list(grouped.values())
+
+
+def load_leads(path: str | Path) -> list[PropertyLead]:
+    return group_records(load_records(path))

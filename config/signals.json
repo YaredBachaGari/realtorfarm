@@ -1,0 +1,39 @@
+{
+  "tiers": {
+    "Tier_1": {
+      "NOTS": ["notice of trustee sale", "trustee sale notice"],
+      "Probate": ["probate filed", "estate inventory"],
+      "Bankruptcy": ["bankruptcy schedules", "chapter 7", "chapter 13"],
+      "REO": ["real estate owned", "bank owned"]
+    },
+    "Tier_2": {
+      "NOD": ["notice of default"],
+      "Lis Pendens": ["lis pendens", "foreclosure lawsuit", "partition lawsuit"],
+      "Auction Scheduled": ["auction scheduled", "sheriff sale"],
+      "IRS Tax Lien": ["federal tax lien", "irs lien"],
+      "Stacked Liens": ["2+ liens", "stacked liens"],
+      "Tax Delinquent 3+ Years Free-and-Clear": ["tax delinquent 3 years", "three year delinquent free and clear"]
+    },
+    "Tier_3": {
+      "Expired Listing": ["expired listing"],
+      "Chronic Code Violation": ["code violation chronic", "3+ years unresolved code"],
+      "Mechanic's Lien": ["mechanics lien", "mechanic lien"],
+      "HOA Lien": ["homeowners association lien"],
+      "Eviction": ["eviction filed", "unlawful detainer"],
+      "Death of Owner": ["death of owner", "sole owner death"],
+      "Tax Delinquent 1-2 Years": ["tax delinquent 1 year", "tax delinquent 2 years"],
+      "Inherited Property No Sale": ["inherited no sale", "inheritance no subsequent sale"]
+    },
+    "Tier_4": {
+      "Absentee Ownership": ["absentee owner"],
+      "Out-of-State Ownership": ["out of state owner", "oos owner"],
+      "Vacant Property": ["vacant", "utility vacant", "visual vacant"],
+      "Long Ownership Tenure": ["long tenure", "owned 20 years"],
+      "Adjacent Developer Sales": ["adjacent parcels selling to developers"],
+      "Mailing Address Change": ["mailing address changed"],
+      "Single Open Code Violation": ["open code violation"],
+      "Death of Joint Tenant": ["joint tenant death"],
+      "Small Civil Judgment": ["civil judgment under 10k", "judgment under $10k"]
+    }
+  }
+}

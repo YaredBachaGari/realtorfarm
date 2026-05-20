@@ -1,0 +1,6 @@
+owner,property_address,parcel_id,signal,source,source_url,recorded_date,case_id,notes
+John Doe2,"123 4th ave, Burien, WA, 98166",0001000001,NOTS,King County Recorder,https://example.invalid/record/1,2026-05-19,REC-1,Sale clock running
+John Doe2,"123 4th ave, Burien, WA, 98166",0001000001,Probate,KC Script,https://example.invalid/case/1,2026-05-18,PROB-1,Parcel listed in inventory
+Jane Seller,"567 4th ave, Burien, WA, 98166",0001000002,Eviction,Washington Courts,https://example.invalid/case/2,2026-05-16,EVI-2,Recent filing
+Jane Seller,"567 4th ave, Burien, WA, 98166",0001000002,Death of Owner,Public vital/court index,https://example.invalid/death/2,2026-05-10,DEATH-2,Sole owner match
+Watch Only,"890 1st ave, Burien, WA, 98166",0001000003,Absentee Ownership,Parcel export,https://example.invalid/parcel/3,2026-05-17,,Weak multiplier only
