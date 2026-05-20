@@ -4,6 +4,11 @@ Agentic distressed-property hunting system for Burien, Washington. It is designe
 
 This repository is not a web app. It is an agent + skills + scripts system: deterministic scripts do collection normalization, scoring, validation, and output rendering; AI agents are reserved for source discovery, hard browser workflows, and deep research on already-qualified leads.
 
+
+## Important Data Notice
+
+IMPORTANT: `data/sample_records.csv` is synthetic test fixture data only. It is used only to test parsing, scoring, and output formatting. It is not extracted from King County, Burien, court, recorder, tax, probate, or listing sites, and it must never be treated as a real lead list. Real daily runs require lawful official-source exports normalized into the canonical schema.
+
 ## What It Hunts
 
 RealtorFarm labels properties using the supplied tiers:
@@ -22,9 +27,9 @@ data= {
   "accessed_date": "05/20/2026",
   "properties": [
     {
-      "Owner": "John Doe2",
-      "property address": "123 4th ave, Burien, WA, 98166",
-      "parcel id": "0001000001",
+      "Owner": "SYNTHETIC TEST OWNER A",
+      "property address": "1000 Synthetic Fixture Ave, Burien, WA, 98166",
+      "parcel id": "TEST-PARCEL-0001",
       "Signals": {"Tier_1": ["NOTS", "Probate"]}
     }
   ]

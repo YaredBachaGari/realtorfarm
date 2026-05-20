@@ -1,5 +1,10 @@
 # Installation Guide
 
+
+## Important Data Notice
+
+IMPORTANT: `data/sample_records.csv` is synthetic test fixture data only. It is used only to test parsing, scoring, and output formatting. It is not extracted from King County, Burien, court, recorder, tax, probate, or listing sites, and it must never be treated as a real lead list. Real daily runs require lawful official-source exports normalized into the canonical schema.
+
 ## Requirements
 
 - Python 3.10+

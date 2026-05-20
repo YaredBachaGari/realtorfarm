@@ -15,6 +15,6 @@ def test_cli_outputs_requested_data_shape(tmp_path: Path):
     assert payload["accessed_date"] == "05/20/2026"
     assert len(payload["properties"]) == 2
     first = payload["properties"][0]
-    assert first["Owner"] == "John Doe2"
-    assert first["parcel id"] == "0001000001"
+    assert first["Owner"] == "SYNTHETIC TEST OWNER A"
+    assert first["parcel id"] == "TEST-PARCEL-0001"
     assert first["Signals"]["Tier_1"] == ["NOTS", "Probate"]

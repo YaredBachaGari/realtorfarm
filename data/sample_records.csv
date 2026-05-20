@@ -1,6 +1,6 @@
 owner,property_address,parcel_id,signal,source,source_url,recorded_date,case_id,notes
-John Doe2,"123 4th ave, Burien, WA, 98166",0001000001,NOTS,King County Recorder,https://example.invalid/record/1,2026-05-19,REC-1,Sale clock running
-John Doe2,"123 4th ave, Burien, WA, 98166",0001000001,Probate,KC Script,https://example.invalid/case/1,2026-05-18,PROB-1,Parcel listed in inventory
-Jane Seller,"567 4th ave, Burien, WA, 98166",0001000002,Eviction,Washington Courts,https://example.invalid/case/2,2026-05-16,EVI-2,Recent filing
-Jane Seller,"567 4th ave, Burien, WA, 98166",0001000002,Death of Owner,Public vital/court index,https://example.invalid/death/2,2026-05-10,DEATH-2,Sole owner match
-Watch Only,"890 1st ave, Burien, WA, 98166",0001000003,Absentee Ownership,Parcel export,https://example.invalid/parcel/3,2026-05-17,,Weak multiplier only
+SYNTHETIC TEST OWNER A,"1000 Synthetic Fixture Ave, Burien, WA, 98166",TEST-PARCEL-0001,NOTS,SYNTHETIC King County Recorder fixture,https://example.invalid/synthetic-record/1,2026-05-19,SYNTH-REC-1,Synthetic fixture: sale clock running
+SYNTHETIC TEST OWNER A,"1000 Synthetic Fixture Ave, Burien, WA, 98166",TEST-PARCEL-0001,Probate,SYNTHETIC KC Script fixture,https://example.invalid/synthetic-case/1,2026-05-18,SYNTH-PROB-1,Synthetic fixture: parcel listed in inventory
+SYNTHETIC TEST OWNER B,"2000 Synthetic Fixture Ave, Burien, WA, 98166",TEST-PARCEL-0002,Eviction,SYNTHETIC Washington Courts fixture,https://example.invalid/synthetic-case/2,2026-05-16,SYNTH-EVI-2,Synthetic fixture: recent filing
+SYNTHETIC TEST OWNER B,"2000 Synthetic Fixture Ave, Burien, WA, 98166",TEST-PARCEL-0002,Death of Owner,SYNTHETIC public vital/court fixture,https://example.invalid/synthetic-death/2,2026-05-10,SYNTH-DEATH-2,Synthetic fixture: sole owner match
+SYNTHETIC WATCH ONLY,"3000 Synthetic Fixture Ave, Burien, WA, 98166",TEST-PARCEL-0003,Absentee Ownership,SYNTHETIC parcel export fixture,https://example.invalid/synthetic-parcel/3,2026-05-17,,Synthetic fixture: weak multiplier only
