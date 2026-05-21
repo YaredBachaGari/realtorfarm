@@ -74,6 +74,7 @@ realtorfarm hunt --input data/sample_records.csv --accessed-date 2026-05-20
 | `/realtorfarm install` | Install package and run tests | none |
 | `/realtorfarm signals` | Show Tier 1-4 signals and aliases | none |
 | `/realtorfarm hunt <records.csv>` | Score and render qualified leads | none |
+| `/realtorfarm scrape-notices <url-or-file>` | Fetch public legal notice pages/files and extract Burien distress leads | none |
 | `/realtorfarm daily <records.csv>` | Validate + score + write latest output | none |
 | `/realtorfarm research <parcel-or-owner>` | AI deep research on a qualified lead | AI only here |
 
@@ -89,6 +90,40 @@ owner,property_address,parcel_id,signal,source,source_url,recorded_date,case_id,
 
 Only the first four fields are structurally required. For the default daily/test run, `recorded_date` must be parseable (`YYYY-MM-DD`, `MM/DD/YYYY`, or `MM/DD/YY`) because undated records are excluded by the 10-day lookback guard. Use `scripts/normalize_records.py` to convert vendor/manual exports into this schema.
 
+## Public Notice Scraping
+
+The repository now includes an implemented extractor, not just scaffolding, for public legal notices that contain Burien property distress signals.
+
+Examples:
+
+```bash
+# Direct legal notice URL or local downloaded HTML/text file
+realtorfarm scrape-notices --source https://example.com/legal-notice --accessed-date 2026-05-21
+
+# Save both the requested data= JSON shape and canonical raw records
+realtorfarm scrape-notices \
+  --source data/raw/2026-05-21/seattle-times-notices.html \
+  --records-output data/normalized/public-notices.csv \
+  --output out/burien-distressed-latest.json.txt
+
+# Follow legal-notice links from an index/search page, capped to avoid uncontrolled scraping
+realtorfarm scrape-notices --source https://classifieds.seattletimes.com/wa/legals/search --max-pages 25
+```
+
+Implemented extraction currently handles:
+
+- Notice of Trustee's Sale / trustee sale notices -> `NOTS` Tier 1.
+- Probate notices / notices to creditors with real property -> `Probate` Tier 1.
+- Lis pendens -> `Lis Pendens` Tier 2.
+- Notice of default -> `NOD` Tier 2.
+- IRS/federal tax liens -> `IRS Tax Lien` Tier 2.
+- Multi-year unpaid/delinquent property tax foreclosure/title text -> `Tax Delinquent 3+ Years Free-and-Clear` Tier 2.
+- Mechanic's lien, HOA lien, eviction/unlawful detainer where address and parcel are present.
+
+The extractor requires a Burien property address and parcel/APN before a row is emitted. It intentionally rejects notices where Burien appears only as a mailing/contact address while the labeled property address is outside Burien.
+
+Note: King County Recorder Landmark document search currently returns `Invalid Captcha` to script POSTs. The deterministic scraper therefore supports public notice pages/files and downloaded/source text first. Landmark results can still be exported or saved manually/browser-agent-side and then fed to `scrape-notices` or `hunt`.
+
 ## Daily Burien Workflow
 
 1. Pull official-source exports or manual search results from the source catalog in `config/sources.burien.json`.
@@ -98,6 +133,13 @@ Only the first four fields are structurally required. For the default daily/test
    python3 scripts/normalize_records.py data/raw/2026-05-20/recorder.csv data/normalized/recorder.csv
    ```
 4. Merge normalized files into `data/daily/burien-merged.csv`.
+   Public legal notice sources can now be extracted directly before merging:
+   ```bash
+   python3 -m realtorfarm.cli scrape-notices \
+     --source data/raw/2026-05-20/legal-notices.html \
+     --records-output data/normalized/public-notices.csv \
+     --output out/burien-public-notices.json.txt
+   ```
 5. Run deterministic scoring. The default testing window processes fewer than 100 raw records (`--max-records 99`) and ignores records older than 10 days from the accessed date (`--lookback-days 10`):
    ```bash
    python3 scripts/run_daily.py --input data/daily/burien-merged.csv --max-records 99 --lookback-days 10

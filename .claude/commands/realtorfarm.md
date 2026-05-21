@@ -20,6 +20,16 @@ Run deterministic scoring without AI tokens. Defaults are set for the current te
 realtorfarm hunt --input <records.csv> --max-records 99 --lookback-days 10 --evidence --output out/burien-distressed-latest.json.txt
 ```
 
+## /realtorfarm scrape-notices <url-or-file>
+Fetch public legal notice pages, index pages, or downloaded HTML/text files and extract actual Burien distressed-property records into the requested `data= {...}` output shape.
+```bash
+realtorfarm scrape-notices \
+  --source <legal-notice-url-or-file> \
+  --records-output data/normalized/public-notices.csv \
+  --output out/burien-public-notices.json.txt \
+  --evidence
+```
+
 ## /realtorfarm daily <records.csv>
 Run validation + scoring:
 ```bash

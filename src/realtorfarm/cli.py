@@ -5,6 +5,7 @@ import json
 from datetime import date
 from pathlib import Path
 
+from .extractors.public_notices import scrape_notice_sources
 from .ingest import DEFAULT_LOOKBACK_DAYS, DEFAULT_MAX_RECORDS, filter_records, group_records, load_records
 from .output import render_data
 from .scoring import qualify_property
@@ -31,6 +32,15 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("--accessed-date", help="Override accessed date as YYYY-MM-DD for reproducible tests")
     validate.add_argument("--max-records", type=int, default=DEFAULT_MAX_RECORDS, help="Maximum raw records to process; default 99 for test extraction")
     validate.add_argument("--lookback-days", type=int, default=DEFAULT_LOOKBACK_DAYS, help="Only process records dated within this many days; default 10")
+
+    scrape = sub.add_parser("scrape-notices", help="Scrape public legal notice URL/file sources into requested data= JSON")
+    scrape.add_argument("--source", action="append", required=True, help="Public legal notice URL, index/search URL, or local HTML/text file. Repeat for multiple sources.")
+    scrape.add_argument("--output", help="Optional data= JSON output file")
+    scrape.add_argument("--records-output", help="Optional canonical CSV output for the raw extracted records")
+    scrape.add_argument("--all", action="store_true", help="Include non-qualifying watch/context leads")
+    scrape.add_argument("--evidence", action="store_true", help="Include evidence and qualification fields")
+    scrape.add_argument("--accessed-date", help="Override accessed date as YYYY-MM-DD for reproducible tests")
+    scrape.add_argument("--max-pages", type=int, default=25, help="Maximum pages to fetch when a source is an index page")
 
     return parser
 
@@ -71,6 +81,29 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_scrape_notices(args: argparse.Namespace) -> int:
+    accessed = date.fromisoformat(args.accessed_date) if args.accessed_date else date.today()
+    records = scrape_notice_sources(args.source, accessed=accessed, max_pages=args.max_pages)
+    leads = group_records(records)
+    text = render_data(leads, accessed=accessed, qualified_only=not args.all, include_research=args.evidence)
+    if args.records_output:
+        _write_records_csv(args.records_output, records)
+    if args.output:
+        Path(args.output).write_text(text + "\n", encoding="utf-8")
+    print(text)
+    return 0
+
+
+def _write_records_csv(path: str, records: list[dict[str, str]]) -> None:
+    import csv
+
+    fieldnames = ["owner", "property_address", "parcel_id", "signal", "source", "source_url", "recorded_date", "case_id", "notes"]
+    with Path(path).open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(records)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -80,6 +113,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_signals(args)
     if args.command == "validate":
         return cmd_validate(args)
+    if args.command == "scrape-notices":
+        return cmd_scrape_notices(args)
     parser.error("unknown command")
     return 2
 
