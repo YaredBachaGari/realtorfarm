@@ -1,6 +1,6 @@
 # RealtorFarm
 
-Agentic distressed-property hunting system for Burien, Washington. It is designed to find public-record distress and motivated-seller signals before they appear on listing sites.
+Agentic distressed-property hunting system for city-specific King County, Washington markets, currently Burien, Kent, and Tukwila. It is designed to find public-record distress and motivated-seller signals before they appear on listing sites.
 
 This repository is not a web app. It is an agent + skills + scripts system: deterministic scripts do collection normalization, scoring, validation, and output rendering; AI agents are reserved for source discovery, hard browser workflows, and deep research on already-qualified leads.
 
@@ -49,11 +49,18 @@ realtorfarm/
 ├── skills/realtorfarm/SKILL.md # reusable skill for agent runners
 ├── .claude/commands/           # /realtorfarm command suite
 ├── config/
-│   ├── signals.json            # Tier 1-4 aliases and canonical labels
-│   └── sources.burien.json     # Burien/King County source catalog
+│   ├── signals.json            # shared Tier 1-4 aliases and canonical labels
+│   └── cities/                 # city-specific source catalogs
+│       ├── burien/sources.json
+│       ├── kent/sources.json
+│       └── tukwila/sources.json
 ├── scripts/                    # token-free daily scripts
-├── src/realtorfarm/            # Python package
-├── data/sample_records.csv     # sample canonical input
+├── src/realtorfarm/            # shared Python package
+├── data/cities/                # city-specific real normalized feeds
+│   ├── burien/daily/merged.csv
+│   ├── kent/daily/merged.csv
+│   └── tukwila/daily/merged.csv
+├── data/sample_records.csv     # shared synthetic sample canonical input
 └── tests/                      # pytest suite
 ```
 
@@ -92,7 +99,7 @@ Only the first four fields are structurally required. For the default daily/test
 
 ## Public Notice Scraping
 
-The repository now includes an implemented extractor, not just scaffolding, for public legal notices that contain Burien property distress signals.
+The repository includes an implemented extractor for public legal notices that contain target-city property distress signals. It defaults to Burien and can target Kent or Tukwila with `--city Kent` / `--city Tukwila`.
 
 Examples:
 
@@ -116,25 +123,26 @@ Implemented extraction currently attempts every Tier 1 and Tier 2 signal instead
 - Tier 2: `NOD`, `Lis Pendens`, `Auction Scheduled`, `IRS Tax Lien`, `Stacked Liens`, `Tax Delinquent 3+ Years Free-and-Clear`.
 - Mechanic's lien, HOA lien, eviction/unlawful detainer where address and parcel are present.
 
-The extractor requires a Burien property address and parcel/APN before a row is emitted. It intentionally rejects notices where Burien appears only as a mailing/contact address while the labeled property address is outside Burien.
+The extractor requires a target-city property/situs address and parcel/APN before a row is emitted. It intentionally rejects notices where the target city appears only as a mailing/contact address while the labeled property address is outside the target city.
 
 Note: King County Recorder Landmark document search returns `Invalid Captcha` to direct scripted POSTs. Use Browser Use Cloud for CAPTCHA-blocked Landmark searches, then save the extracted Landmark detail text and feed it to `scrape-notices` or `hunt`. Verified Browser Use Cloud workflow on 2026-05-21 found recent Notice of Trustee Sale records, including Landmark recording number `20260511000326`; when Landmark output is enriched with a Burien property address from King County parcel/address sources, `scrape-notices` emits a Tier 1 `NOTS` lead.
 
-## Daily Burien Workflow
+## Daily City Workflow
 
-1. Pull official-source exports or manual search results from the source catalog in `config/sources.burien.json`.
+1. Pull official-source exports or manual search results from the source catalog in `config/cities/<city>/sources.json`.
 2. Save raw files under `data/raw/YYYY-MM-DD/`.
 3. Normalize each file:
    ```bash
    python3 scripts/normalize_records.py data/raw/2026-05-20/recorder.csv data/normalized/recorder.csv
    ```
-4. Merge normalized files into `data/daily/burien-merged.csv`.
+4. Merge normalized files into `data/cities/<city>/daily/merged.csv`.
    Public legal notice sources can now be extracted directly before merging:
    ```bash
    python3 -m realtorfarm.cli scrape-notices \
      --source data/raw/2026-05-20/legal-notices.html \
      --records-output data/normalized/public-notices.csv \
-     --output out/burien-public-notices.json.txt
+     --city Burien \
+     --output out/burien/public-notices.json.txt
    ```
 5. Run deterministic scoring and upload the daily `data= {...}` output to the private Vercel Blob store `distress-signal` when `BLOB_READ_WRITE_TOKEN` is available. The default testing window processes fewer than 100 raw records (`--max-records 99`) and ignores records older than 10 days from the accessed date (`--lookback-days 10`):
    ```bash
@@ -145,22 +153,24 @@ Note: King County Recorder Landmark document search returns `Invalid Captcha` to
      --upload-blob \
      --blob-prefix burien
    ```
-   This writes both `burien/YYYY-MM-DD.json.txt` and an overwritten `burien/latest.json.txt` blob.
+   This reads `data/cities/burien/daily/merged.csv` by default and writes both `burien/YYYY-MM-DD.json.txt` and an overwritten `burien/latest.json.txt` blob. Use `--city kent` or `--city tukwila` for other markets; each reads `data/cities/<city>/daily/merged.csv` and uploads to the matching blob prefix.
 6. Validate output:
    ```bash
-   python3 scripts/validate_output.py out/burien-distressed-latest.json.txt
+   python3 scripts/validate_output.py out/burien/distressed-latest.json.txt
    ```
 7. Send only outreach-qualified leads to the `deep-research` and `outreach-qa` agents.
 
-## Source Catalog for Burien
+## Source Catalogs
 
-Initial official-source targets:
+Initial official-source targets are the same county-level sources for Burien, Kent, and Tukwila, plus city-specific code-enforcement sources:
 
 - King County Recorder online records: NOTS, NOD, liens, lis pendens, REO-related deeds.
 - King County Parcel Viewer / property research: parcel, situs, owner, mailing address, tenure context.
 - King County Treasury tax foreclosure pages: 3+ year delinquency and auctions.
 - Washington Courts Name and Case Search / KC Script: probate, eviction, lis pendens, partition, judgments.
 - City of Burien Code Compliance: chronic/unresolved code violations where public records are available.
+- City of Kent Code Enforcement: chronic/unresolved code violations where public records are available.
+- City of Tukwila Code Enforcement / Public Records Requests: chronic/unresolved code violations where public records are available.
 
 ## Qualification Rules Implemented
 
@@ -176,6 +186,6 @@ The implementation is in `src/realtorfarm/scoring.py` and covered by tests.
 
 Use official public records and lawful exports only. Do not infer protected-class characteristics, do not harass owners, and verify every outreach lead against official source citations before contact. This system produces research leads, not legal advice or guaranteed distress determinations.
 
-## Expanding Later to Kent, Renton, Tukwila
+## Expanding Later to Renton, Other Cities
 
-Add a new source catalog file such as `config/sources.kent.json`, keep the same canonical schema, and reuse the scoring/output pipeline unchanged. City-specific source agents should only change collection, not qualification criteria.
+Add `config/cities/<city>/sources.json` and `data/cities/<city>/daily/merged.csv`, keep the same canonical schema, and reuse the scoring/output pipeline unchanged. City-specific source agents should only change collection, not qualification criteria.

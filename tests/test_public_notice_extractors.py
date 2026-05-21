@@ -113,6 +113,54 @@ def test_notice_with_non_burien_property_and_burien_mailing_address_is_rejected(
     ) == []
 
 
+def test_extract_notice_records_accepts_kent_as_target_city():
+    html = """
+    <html><body><article>
+    <h1>NOTICE OF TRUSTEE'S SALE TS No.: KENT-2026-0007</h1>
+    <p>Grantor: KENT SAMPLE OWNER LLC</p>
+    <p>Property Address: 220 4th Ave S, Kent, WA 98032</p>
+    <p>Parcel No. 232204-9001</p>
+    <p>Recorded on May 20, 2026 as Instrument No. 20260520000999.</p>
+    </article></body></html>
+    """
+
+    records = extract_notice_records(
+        html,
+        source_url="https://classifieds.example.test/kent-notice-of-trustee-sale",
+        accessed=date(2026, 5, 21),
+        target_city="Kent",
+    )
+
+    assert records[0]["owner"] == "KENT SAMPLE OWNER LLC"
+    assert records[0]["property_address"] == "220 4th Ave S, Kent, WA 98032"
+    assert records[0]["parcel_id"] == "232204-9001"
+    assert records[0]["signal"] == "NOTS"
+
+
+def test_extract_notice_records_accepts_tukwila_as_target_city():
+    html = """
+    <html><body><article>
+    <h1>NOTICE OF TRUSTEE'S SALE TS No.: TUK-2026-0011</h1>
+    <p>Grantor: TUKWILA SAMPLE OWNER LLC</p>
+    <p>Property Address: 14475 59th Ave S, Tukwila, WA 98168</p>
+    <p>Parcel No. 004000-0123</p>
+    <p>Recorded on May 20, 2026 as Instrument No. 20260520001011.</p>
+    </article></body></html>
+    """
+
+    records = extract_notice_records(
+        html,
+        source_url="https://classifieds.example.test/tukwila-notice-of-trustee-sale",
+        accessed=date(2026, 5, 21),
+        target_city="Tukwila",
+    )
+
+    assert records[0]["owner"] == "TUKWILA SAMPLE OWNER LLC"
+    assert records[0]["property_address"] == "14475 59th Ave S, Tukwila, WA 98168"
+    assert records[0]["parcel_id"] == "004000-0123"
+    assert records[0]["signal"] == "NOTS"
+
+
 def test_extract_tax_foreclosure_title_text_into_tier_2_signal():
     records = extract_notice_records(
         TAX_FORECLOSURE_TITLE_TEXT,

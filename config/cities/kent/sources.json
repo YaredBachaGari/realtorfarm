@@ -1,0 +1,14 @@
+{
+  "jurisdiction": "Kent, WA",
+  "county": "King County",
+  "state": "Washington",
+  "daily_sources": [
+    {"name": "King County Recorder online records", "signals": ["NOTS", "NOD", "Liens", "Lis Pendens", "REO deeds"], "url": "https://kingcounty.gov/en/dept/executive-services/certificates-permits-licenses/records-licensing/recorders-office/records-search", "collection_mode": "manual_export_or_browser_agent"},
+    {"name": "King County Parcel Viewer / property research", "signals": ["owner", "parcel", "situs address", "mailing address", "tax account context"], "url": "https://kingcounty.gov/en/dept/kcit/data-information-services/gis-center/property-research", "collection_mode": "manual_export_or_browser_agent"},
+    {"name": "King County Treasury tax foreclosure", "signals": ["tax delinquent 3+ years", "auction"], "url": "https://kingcounty.gov/en/dept/executive-services/buildings-property/treasury-operations/tax-foreclosures", "collection_mode": "script_or_manual_download"},
+    {"name": "Washington Courts Name and Case Search", "signals": ["probate", "eviction", "civil judgment"], "url": "https://www.courts.wa.gov/index.cfm?fa=home.contentDisplay&location=nameAndCaseSearch", "collection_mode": "browser_agent"},
+    {"name": "King County Superior Court / KC Script", "signals": ["probate", "lis pendens", "partition", "eviction"], "url": "https://kingcounty.gov/en/dept/dja/courts-jails-legal-system/case-records/records-access", "collection_mode": "browser_agent"},
+    {"name": "City of Kent Code Enforcement", "signals": ["code violation"], "url": "https://www.kentwa.gov/departments/economic-community-development/code-enforcement", "collection_mode": "public_request_or_manual_export"}
+  ],
+  "ai_token_policy": "Collectors, parsers, scoring, dedupe, and output rendering are deterministic scripts. Use AI only for deep-research summaries on outreach-qualified leads or when a source requires visual/browser judgment."
+}

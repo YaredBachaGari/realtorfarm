@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "realtorfarm"
 version = "0.1.0"
-description = "Agentic distressed-property hunting system for Burien, WA public-record signals"
+description = "Agentic distressed-property hunting system for city-specific King County, WA public-record signals"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}

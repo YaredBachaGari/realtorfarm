@@ -41,6 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     scrape.add_argument("--evidence", action="store_true", help="Include evidence and qualification fields")
     scrape.add_argument("--accessed-date", help="Override accessed date as YYYY-MM-DD for reproducible tests")
     scrape.add_argument("--max-pages", type=int, default=25, help="Maximum pages to fetch when a source is an index page")
+    scrape.add_argument("--city", default="Burien", help="Target city/jurisdiction for property address matching; default Burien")
 
     return parser
 
@@ -83,7 +84,12 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 def cmd_scrape_notices(args: argparse.Namespace) -> int:
     accessed = date.fromisoformat(args.accessed_date) if args.accessed_date else date.today()
-    records = scrape_notice_sources(args.source, accessed=accessed, max_pages=args.max_pages)
+    records = scrape_notice_sources(
+        args.source,
+        accessed=accessed,
+        max_pages=args.max_pages,
+        target_city=args.city,
+    )
     leads = group_records(records)
     text = render_data(leads, accessed=accessed, qualified_only=not args.all, include_research=args.evidence)
     if args.records_output:

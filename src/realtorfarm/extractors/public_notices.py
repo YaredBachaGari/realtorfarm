@@ -51,8 +51,14 @@ DISTRESS_TERMS = (
 )
 
 
-def scrape_notice_sources(sources: list[str], *, accessed: date | None = None, max_pages: int = 25) -> list[dict[str, str]]:
-    """Fetch URL/file legal notices and return canonical rows for Burien distress signals.
+def scrape_notice_sources(
+    sources: list[str],
+    *,
+    accessed: date | None = None,
+    max_pages: int = 25,
+    target_city: str = "Burien",
+) -> list[dict[str, str]]:
+    """Fetch URL/file legal notices and return canonical rows for target-city distress signals.
 
     Sources may be:
     - direct public legal notice URLs,
@@ -68,23 +74,36 @@ def scrape_notice_sources(sources: list[str], *, accessed: date | None = None, m
             if page_source in seen:
                 continue
             seen.add(page_source)
-            records.extend(extract_notice_records(text, source_url=page_source, accessed=accessed))
+            records.extend(
+                extract_notice_records(
+                    text,
+                    source_url=page_source,
+                    accessed=accessed,
+                    target_city=target_city,
+                )
+            )
 
     return _dedupe_records(records)
 
 
-def extract_notice_records(text: str, *, source_url: str, accessed: date | None = None) -> list[dict[str, str]]:
-    """Extract Burien distress-property rows from public legal notice text or HTML."""
+def extract_notice_records(
+    text: str,
+    *,
+    source_url: str,
+    accessed: date | None = None,
+    target_city: str = "Burien",
+) -> list[dict[str, str]]:
+    """Extract target-city distress-property rows from public legal notice text or HTML."""
     accessed = accessed or date.today()
     plain = normalize_notice_text(text)
-    if not _mentions_burien(plain) or not _contains_distress_signal(plain):
+    if not _mentions_target_city(plain, target_city) or not _contains_distress_signal(plain):
         return []
 
     signals = _detect_signals(plain)
     if not signals:
         return []
 
-    address = _extract_address(plain)
+    address = _extract_address(plain, target_city=target_city)
     parcel_id = _extract_parcel_id(plain)
     case_id = _extract_case_id(plain)
     recorded_date = _extract_recorded_date(plain) or accessed.isoformat()
@@ -170,8 +189,9 @@ def _looks_like_distress_notice(text: str) -> bool:
     return any(term in plain for term in DISTRESS_TERMS)
 
 
-def _mentions_burien(text: str) -> bool:
-    return re.search(r"\bBurien\b\s*,?\s*WA\b|\bBurien\b\s*,?\s*Washington\b", text, re.I) is not None
+def _mentions_target_city(text: str, target_city: str) -> bool:
+    city = re.escape(target_city.strip())
+    return re.search(rf"\b{city}\b\s*,?\s*(?:WA|Washington)\b", text, re.I) is not None
 
 
 def _contains_distress_signal(text: str) -> bool:
@@ -216,7 +236,8 @@ def _detect_signals(text: str) -> list[str]:
         signals.append("Eviction")
     return list(dict.fromkeys(signals))
 
-def _extract_address(text: str) -> str:
+def _extract_address(text: str, *, target_city: str = "Burien") -> str:
+    city = re.escape(target_city.strip())
     labeled = re.search(
         r"(?:property address|common address|situs address|property|commonly known as|more commonly known as)\s*[:\-]?\s*([^\n.;]+?(?:\b[A-Z][a-z]+\b\s*,?\s*WA(?:shington)?\s+\d{5}(?:-\d{4})?))",
         text,
@@ -225,10 +246,10 @@ def _extract_address(text: str) -> str:
     if labeled:
         candidate = _clean_value(labeled.group(1))
         candidate = re.sub(r"^(?:commonly|more commonly)\s+known\s+as\s+", "", candidate, flags=re.I)
-        return candidate if re.search(r"\bBurien\b\s*,?\s*WA", candidate, re.I) else ""
+        return candidate if re.search(rf"\b{city}\b\s*,?\s*(?:WA|Washington)\b", candidate, re.I) else ""
 
     patterns = [
-        r"((?:\d{1,6}\s+[^\n.;]{2,80}?\b(?:Ave|Avenue|St|Street|Rd|Road|Dr|Drive|Ln|Lane|Ct|Court|Pl|Place|Way|Blvd|Boulevard|Ter|Terrace|Cir|Circle)\b[^\n.;]{0,60}?\bBurien\b\s*,?\s*WA(?:shington)?\s+\d{5}(?:-\d{4})?))",
+        rf"((?:\d{{1,6}}\s+[^\n.;]{{2,80}}?\b(?:Ave|Avenue|St|Street|Rd|Road|Dr|Drive|Ln|Lane|Ct|Court|Pl|Place|Way|Blvd|Boulevard|Ter|Terrace|Cir|Circle)\b[^\n.;]{{0,60}}?\b{city}\b\s*,?\s*WA(?:shington)?\s+\d{{5}}(?:-\d{{4}})?))",
     ]
     for pattern in patterns:
         match = re.search(pattern, text, re.I)
@@ -239,7 +260,7 @@ def _extract_address(text: str) -> str:
     street_re = re.compile(r"^\d{1,6}\s+.+\b(?:Ave|Avenue|St|Street|Rd|Road|Dr|Drive|Ln|Lane|Ct|Court|Pl|Place|Way|Blvd|Boulevard|Ter|Terrace|Cir|Circle)\b", re.I)
     for index, line in enumerate(lines[:-1]):
         next_line = lines[index + 1]
-        if street_re.search(line) and re.search(r"\bBurien\b\s*,?\s*WA(?:shington)?\s+\d{5}(?:-\d{4})?", next_line, re.I):
+        if street_re.search(line) and re.search(rf"\b{city}\b\s*,?\s*WA(?:shington)?\s+\d{{5}}(?:-\d{{4}})?", next_line, re.I):
             return f"{line}, {next_line}"
     return ""
 
