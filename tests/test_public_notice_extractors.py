@@ -43,6 +43,19 @@ The property has multiple years of unpaid taxes. Delinquent taxes shown herein m
 """
 
 
+LANDMARK_BROWSER_USE_NOTICE_TEXT = """
+King County Recorder Landmark browser-use extraction
+Document Type: AMENDED NOTICE OF TRUSTEE SALE
+Recording Date: 05/11/2026
+Recording Number: 20260511000326
+Grantor: 12203 DMM LLC
+Grantee: GRANT CONSTRUCTION CO INC 401K PLAN, M5 CAPITAL LLC
+Legal/Parcel: PID: 8944030050, 8944030060; SUB: VILLA TOWNHOMES
+Property Address: 12215 Des Moines Memorial Drive S Unit B, Burien, WA 98168
+Source: King County Recorder Landmark search via Browser Use Cloud; parcel/address enriched from King County Parcel Viewer public records.
+"""
+
+
 def test_extract_notice_of_trustee_sale_into_canonical_record():
     records = extract_notice_records(
         NOTICE_OF_TRUSTEE_SALE_HTML,
@@ -112,6 +125,21 @@ def test_extract_tax_foreclosure_title_text_into_tier_2_signal():
     assert records[0]["parcel_id"] == "309200-0235-00"
     assert records[0]["signal"] == "Tax Delinquent 3+ Years Free-and-Clear"
     assert records[0]["recorded_date"] == "2017-12-08"
+
+
+def test_extract_landmark_browser_use_notice_text_with_pid_and_recording_number():
+    records = extract_notice_records(
+        LANDMARK_BROWSER_USE_NOTICE_TEXT,
+        source_url="browser-use://landmark/20260511000326",
+        accessed=date(2026, 5, 21),
+    )
+
+    assert records[0]["owner"] == "12203 DMM LLC"
+    assert records[0]["property_address"] == "12215 Des Moines Memorial Drive S Unit B, Burien, WA 98168"
+    assert records[0]["parcel_id"] == "8944030050"
+    assert records[0]["signal"] == "NOTS"
+    assert records[0]["recorded_date"] == "2026-05-11"
+    assert records[0]["case_id"] == "20260511000326"
 
 
 def test_scrape_notice_sources_accepts_local_html_files(tmp_path: Path):

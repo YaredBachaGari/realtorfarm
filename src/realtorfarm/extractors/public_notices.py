@@ -225,7 +225,8 @@ def _extract_address(text: str) -> str:
 
 def _extract_parcel_id(text: str) -> str:
     patterns = [
-        r"\b(?:APN|Parcel(?:\s+(?:No\.?|Number|ID|ID\(s\)))?|Tax\s+(?:Parcel|Account)(?:\s+(?:No\.?|Number))?)\s*[:#\-]?\s*([A-Z0-9][A-Z0-9\-]{4,25})\b",
+        r"\bPID\s*[:#\-]?\s*([0-9][0-9\-]{5,25})\b",
+        r"\b(?:APN|Parcel\s+(?:No\.?|Number|ID|ID\(s\))|Tax\s+(?:Parcel|Account)(?:\s+(?:No\.?|Number))?)\s*[:#\-]?\s*([A-Z0-9][A-Z0-9\-]{4,25})\b",
     ]
     for pattern in patterns:
         match = re.search(pattern, text, re.I)
@@ -265,6 +266,7 @@ def _extract_case_id(text: str) -> str:
         r"\bTS\s*(?:No\.?|#)\s*[:#]?\s*([A-Z0-9\-]+)",
         r"\bCase\s*(?:No\.?|#)\s*[:#]?\s*([A-Z0-9\-]+(?:\s+[A-Z]{3})?)",
         r"\bInstrument\s*(?:No\.?|#)\s*[:#]?\s*([A-Z0-9\-]+)",
+        r"\bRecording\s+Number\s*[:#]?\s*([A-Z0-9\-]+)",
     ]
     for pattern in patterns:
         match = re.search(pattern, text, re.I)
@@ -278,6 +280,7 @@ def _extract_recorded_date(text: str) -> str:
         r"\bRecorded\s+(?:on\s+)?([A-Z][a-z]+\s+\d{1,2},\s+\d{4})",
         r"\bPublished\s+([A-Z][a-z]+\s+\d{1,2},\s+\d{4})",
         r"\bEffective\s+Date\s*[:\-]?\s*([A-Z][a-z]+\s+\d{1,2},\s+\d{4})",
+        r"\bRecording\s+Date\s*[:\-]?\s*(\d{1,2}/\d{1,2}/\d{2,4})",
     ]
     for pattern in patterns:
         match = re.search(pattern, text, re.I)

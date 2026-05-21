@@ -122,7 +122,7 @@ Implemented extraction currently handles:
 
 The extractor requires a Burien property address and parcel/APN before a row is emitted. It intentionally rejects notices where Burien appears only as a mailing/contact address while the labeled property address is outside Burien.
 
-Note: King County Recorder Landmark document search currently returns `Invalid Captcha` to script POSTs. The deterministic scraper therefore supports public notice pages/files and downloaded/source text first. Landmark results can still be exported or saved manually/browser-agent-side and then fed to `scrape-notices` or `hunt`.
+Note: King County Recorder Landmark document search returns `Invalid Captcha` to direct scripted POSTs. Use Browser Use Cloud for CAPTCHA-blocked Landmark searches, then save the extracted Landmark detail text and feed it to `scrape-notices` or `hunt`. Verified Browser Use Cloud workflow on 2026-05-21 found recent Notice of Trustee Sale records, including Landmark recording number `20260511000326`; when Landmark output is enriched with a Burien property address from King County parcel/address sources, `scrape-notices` emits a Tier 1 `NOTS` lead.
 
 ## Daily Burien Workflow
 

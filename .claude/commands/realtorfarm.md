@@ -21,7 +21,7 @@ realtorfarm hunt --input <records.csv> --max-records 99 --lookback-days 10 --evi
 ```
 
 ## /realtorfarm scrape-notices <url-or-file>
-Fetch public legal notice pages, index pages, or downloaded HTML/text files and extract actual Burien distressed-property records into the requested `data= {...}` output shape.
+Fetch public legal notice pages, index pages, Browser Use Cloud Landmark exports, or downloaded HTML/text files and extract actual Burien distressed-property records into the requested `data= {...}` output shape. For CAPTCHA-blocked King County Recorder Landmark searches, use Browser Use Cloud to retrieve the Landmark result/detail text, enrich with King County parcel/address data when needed, save it locally, then pass that file as `--source`.
 ```bash
 realtorfarm scrape-notices \
   --source <legal-notice-url-or-file> \
