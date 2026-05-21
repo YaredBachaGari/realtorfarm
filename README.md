@@ -110,14 +110,10 @@ realtorfarm scrape-notices \
 realtorfarm scrape-notices --source https://classifieds.seattletimes.com/wa/legals/search --max-pages 25
 ```
 
-Implemented extraction currently handles:
+Implemented extraction currently attempts every Tier 1 and Tier 2 signal instead of focusing on a single criterion. A notice/source text can emit multiple canonical rows for the same property when multiple distress signals are present.
 
-- Notice of Trustee's Sale / trustee sale notices -> `NOTS` Tier 1.
-- Probate notices / notices to creditors with real property -> `Probate` Tier 1.
-- Lis pendens -> `Lis Pendens` Tier 2.
-- Notice of default -> `NOD` Tier 2.
-- IRS/federal tax liens -> `IRS Tax Lien` Tier 2.
-- Multi-year unpaid/delinquent property tax foreclosure/title text -> `Tax Delinquent 3+ Years Free-and-Clear` Tier 2.
+- Tier 1: `NOTS`, `Probate`, `Bankruptcy`, `REO`.
+- Tier 2: `NOD`, `Lis Pendens`, `Auction Scheduled`, `IRS Tax Lien`, `Stacked Liens`, `Tax Delinquent 3+ Years Free-and-Clear`.
 - Mechanic's lien, HOA lien, eviction/unlawful detainer where address and parcel are present.
 
 The extractor requires a Burien property address and parcel/APN before a row is emitted. It intentionally rejects notices where Burien appears only as a mailing/contact address while the labeled property address is outside Burien.

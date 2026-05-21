@@ -33,7 +33,16 @@ DISTRESS_TERMS = (
     "probate notice",
     "notice to creditors",
     "estate of",
+    "bankruptcy",
+    "chapter 7",
+    "chapter 13",
+    "real estate owned",
+    "reo",
+    "bank owned",
+    "auction scheduled",
+    "sheriff sale",
     "federal tax lien",
+    "stacked liens",
     "mechanic",
     "hoa lien",
     "homeowners association lien",
@@ -71,30 +80,33 @@ def extract_notice_records(text: str, *, source_url: str, accessed: date | None 
     if not _mentions_burien(plain) or not _contains_distress_signal(plain):
         return []
 
-    signal = _detect_signal(plain)
-    if not signal:
+    signals = _detect_signals(plain)
+    if not signals:
         return []
 
     address = _extract_address(plain)
     parcel_id = _extract_parcel_id(plain)
-    owner = _extract_owner(plain, signal=signal)
     case_id = _extract_case_id(plain)
     recorded_date = _extract_recorded_date(plain) or accessed.isoformat()
 
     if not address or not parcel_id:
         return []
 
-    return [
-        _canonical_record(
-            owner=owner,
-            property_address=address,
-            parcel_id=parcel_id,
-            signal=signal,
-            source_url=source_url,
-            recorded_date=recorded_date,
-            case_id=case_id,
+    records = []
+    for signal in signals:
+        owner = _extract_owner(plain, signal=signal)
+        records.append(
+            _canonical_record(
+                owner=owner,
+                property_address=address,
+                parcel_id=parcel_id,
+                signal=signal,
+                source_url=source_url,
+                recorded_date=recorded_date,
+                case_id=case_id,
+            )
         )
-    ]
+    return records
 
 
 def normalize_notice_text(text: str) -> str:
@@ -167,33 +179,42 @@ def _contains_distress_signal(text: str) -> bool:
     return any(term in lowered for term in DISTRESS_TERMS)
 
 
-def _detect_signal(text: str) -> str | None:
+def _detect_signals(text: str) -> list[str]:
     lowered = text.lower()
+    signals: list[str] = []
+
     if (
         "tax delinquent" in lowered
         or "delinquent taxes" in lowered
         or "unpaid taxes" in lowered
         or "property tax foreclosure" in lowered
     ):
-        return "Tax Delinquent 3+ Years Free-and-Clear"
+        signals.append("Tax Delinquent 3+ Years Free-and-Clear")
     if "notice of trustee" in lowered or "trustee's sale" in lowered or "trustee sale" in lowered:
-        return "NOTS"
-    if "notice of default" in lowered:
-        return "NOD"
-    if "lis pendens" in lowered:
-        return "Lis Pendens"
+        signals.append("NOTS")
     if "probate notice" in lowered or "notice to creditors" in lowered or re.search(r"\bestate of\b", lowered):
-        return "Probate"
+        signals.append("Probate")
+    if "bankruptcy" in lowered or "chapter 7" in lowered or "chapter 13" in lowered:
+        signals.append("Bankruptcy")
+    if "real estate owned" in lowered or re.search(r"\breo\b", lowered) or "bank owned" in lowered:
+        signals.append("REO")
+    if "notice of default" in lowered:
+        signals.append("NOD")
+    if "lis pendens" in lowered:
+        signals.append("Lis Pendens")
+    if "auction scheduled" in lowered or "sheriff sale" in lowered:
+        signals.append("Auction Scheduled")
     if "federal tax lien" in lowered or "irs lien" in lowered:
-        return "IRS Tax Lien"
+        signals.append("IRS Tax Lien")
+    if "stacked liens" in lowered or re.search(r"\b(?:2\+|two or more|multiple)\s+liens\b", lowered):
+        signals.append("Stacked Liens")
     if "mechanic" in lowered and "lien" in lowered:
-        return "Mechanic's Lien"
+        signals.append("Mechanic's Lien")
     if "hoa lien" in lowered or "homeowners association lien" in lowered:
-        return "HOA Lien"
+        signals.append("HOA Lien")
     if "unlawful detainer" in lowered or "eviction" in lowered:
-        return "Eviction"
-    return None
-
+        signals.append("Eviction")
+    return list(dict.fromkeys(signals))
 
 def _extract_address(text: str) -> str:
     labeled = re.search(

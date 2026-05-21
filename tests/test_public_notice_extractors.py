@@ -142,6 +142,43 @@ def test_extract_landmark_browser_use_notice_text_with_pid_and_recording_number(
     assert records[0]["case_id"] == "20260511000326"
 
 
+def test_extracts_all_tier_1_and_tier_2_signals_not_just_nots_or_tax_delinquent():
+    text = """
+    Public records packet for 13579 4th Ave SW, Burien, WA 98146.
+    Parcel No. 135790-2468. Owner: SIGNAL COVERAGE LLC.
+    Notice of Trustee's Sale. Probate notice to creditors in the Estate of Sample Owner.
+    Chapter 13 bankruptcy schedules list the property. REO / real estate owned review opened.
+    Notice of Default recorded. Lis Pendens filed for foreclosure lawsuit.
+    Auction scheduled for sheriff sale. Federal Tax Lien and IRS lien recorded.
+    Stacked liens: multiple liens affect the same parcel.
+    """
+
+    records = extract_notice_records(text, source_url="file:///all-tier1-tier2.txt", accessed=date(2026, 5, 21))
+
+    assert {record["signal"] for record in records} >= {
+        "NOTS",
+        "Probate",
+        "Bankruptcy",
+        "REO",
+        "NOD",
+        "Lis Pendens",
+        "Auction Scheduled",
+        "IRS Tax Lien",
+        "Stacked Liens",
+    }
+
+    rendered = render_data(group_records(records), accessed=date(2026, 5, 21))
+    payload = json.loads(rendered.removeprefix("data= "))
+    assert payload["properties"][0]["Signals"]["Tier_1"] == ["Bankruptcy", "NOTS", "Probate", "REO"]
+    assert payload["properties"][0]["Signals"]["Tier_2"] == [
+        "Auction Scheduled",
+        "IRS Tax Lien",
+        "Lis Pendens",
+        "NOD",
+        "Stacked Liens",
+    ]
+
+
 def test_scrape_notice_sources_accepts_local_html_files(tmp_path: Path):
     notice = tmp_path / "notice.html"
     notice.write_text(NOTICE_OF_TRUSTEE_SALE_HTML, encoding="utf-8")
