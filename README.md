@@ -136,10 +136,16 @@ Note: King County Recorder Landmark document search returns `Invalid Captcha` to
      --records-output data/normalized/public-notices.csv \
      --output out/burien-public-notices.json.txt
    ```
-5. Run deterministic scoring. The default testing window processes fewer than 100 raw records (`--max-records 99`) and ignores records older than 10 days from the accessed date (`--lookback-days 10`):
+5. Run deterministic scoring and upload the daily `data= {...}` output to the private Vercel Blob store `distress-signal` when `BLOB_READ_WRITE_TOKEN` is available. The default testing window processes fewer than 100 raw records (`--max-records 99`) and ignores records older than 10 days from the accessed date (`--lookback-days 10`):
    ```bash
-   python3 scripts/run_daily.py --input data/daily/burien-merged.csv --max-records 99 --lookback-days 10
+   python3 scripts/run_daily.py \
+     --input data/daily/burien-merged.csv \
+     --max-records 99 \
+     --lookback-days 10 \
+     --upload-blob \
+     --blob-prefix burien
    ```
+   This writes both `burien/YYYY-MM-DD.json.txt` and an overwritten `burien/latest.json.txt` blob.
 6. Validate output:
    ```bash
    python3 scripts/validate_output.py out/burien-distressed-latest.json.txt

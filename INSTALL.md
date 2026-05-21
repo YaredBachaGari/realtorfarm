@@ -35,6 +35,10 @@ python3 scripts/validate_output.py out/burien-distressed-latest.json.txt
 
 ## Daily Cron Example
 
+The daily runner can upload the generated `data= {...}` output to the private Vercel Blob store `distress-signal` when `BLOB_READ_WRITE_TOKEN` is available in the environment or `/opt/data/.env`.
+
 ```cron
-15 6 * * * cd /path/to/realtorfarm && . .venv/bin/activate && python3 scripts/run_daily.py --input data/daily/burien-merged.csv --max-records 99 --lookback-days 10 >> logs/daily.log 2>&1
+15 6 * * * cd /path/to/realtorfarm && . .venv/bin/activate && python3 scripts/run_daily.py --input data/daily/burien-merged.csv --max-records 99 --lookback-days 10 --upload-blob --blob-prefix burien >> logs/daily.log 2>&1
 ```
+
+Each successful run writes `burien/YYYY-MM-DD.json.txt` and overwrites `burien/latest.json.txt`.
