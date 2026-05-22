@@ -5,7 +5,7 @@ import json
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
-from .models import PropertyLead, SignalEvent
+from .models import ListingStatus, PropertyLead, SignalEvent
 from .signals import normalize_signal
 
 REQUIRED_COLUMNS = {"owner", "property_address", "parcel_id", "signal"}
@@ -76,6 +76,9 @@ def group_records(records: list[dict[str, str]]) -> list[PropertyLead]:
         lead = grouped.setdefault(key, PropertyLead(owner=owner, property_address=address, parcel_id=parcel_id))
         if owner and owner not in lead.owner:
             lead.owner = f"{lead.owner}; {owner}" if lead.owner else owner
+        row_listing = _listing_status_from_row(row)
+        if row_listing and lead.listing_status is None:
+            lead.listing_status = row_listing
         lead.events.append(
             SignalEvent(
                 name=name, tier=tier, source=row.get("source", ""),
@@ -88,3 +91,18 @@ def group_records(records: list[dict[str, str]]) -> list[PropertyLead]:
 
 def load_leads(path: str | Path) -> list[PropertyLead]:
     return group_records(load_records(path))
+
+
+def _listing_status_from_row(row: dict[str, str]) -> ListingStatus | None:
+    listed_status = row.get("listed_status", "").strip()
+    listing_date = row.get("listing_date", "").strip()
+    listing_url = row.get("listing_url", "").strip()
+    listing_source = row.get("listing_source", "").strip()
+    if not any((listed_status, listing_date, listing_url, listing_source)):
+        return None
+    return ListingStatus(
+        listed_status=listed_status,
+        listing_date=listing_date,
+        listing_url=listing_url,
+        listing_source=listing_source,
+    )

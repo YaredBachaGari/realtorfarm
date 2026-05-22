@@ -15,12 +15,21 @@ class SignalEvent:
     notes: str = ""
 
 
+@dataclass(frozen=True)
+class ListingStatus:
+    listed_status: str = ""
+    listing_date: str = ""
+    listing_url: str = ""
+    listing_source: str = ""
+
+
 @dataclass
 class PropertyLead:
     owner: str
     property_address: str
     parcel_id: str
     events: list[SignalEvent] = field(default_factory=list)
+    listing_status: ListingStatus | None = None
 
     def tier_map(self) -> dict[str, list[str]]:
         tiers: dict[str, list[str]] = {}

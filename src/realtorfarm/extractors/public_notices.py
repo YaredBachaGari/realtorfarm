@@ -139,7 +139,7 @@ def extract_notice_candidate(
     contains_distress = _contains_distress_signal(plain)
     signals = _detect_signals(plain) if contains_distress else []
     address = _extract_address(plain, target_city=target_city) if mentions_city else ""
-    parcel_id = _extract_parcel_id(plain)
+    parcel_id = _extract_parcel_id(plain, address=address)
     case_id = _extract_case_id(plain)
     recorded_date = _extract_recorded_date(plain) or accessed.isoformat()
     rejection_reason = ""
@@ -183,7 +183,7 @@ def extract_notice_records(
         return []
 
     address = _extract_address(plain, target_city=target_city)
-    parcel_id = _extract_parcel_id(plain)
+    parcel_id = _extract_parcel_id(plain, address=address)
     case_id = _extract_case_id(plain)
     recorded_date = _extract_recorded_date(plain) or accessed.isoformat()
 
@@ -344,7 +344,17 @@ def _extract_address(text: str, *, target_city: str = "Burien") -> str:
     return ""
 
 
-def _extract_parcel_id(text: str) -> str:
+def _extract_parcel_id(text: str, *, address: str = "") -> str:
+    unit = _extract_unit_designator(address)
+    if unit:
+        unit_match = re.search(
+            rf"\bPID\s*[:#\-]?\s*([0-9][0-9\-]{{5,25}})\b[^\n.;]{{0,40}}?\b(?:Unit|#)\s*{re.escape(unit)}\b",
+            text,
+            re.I,
+        )
+        if unit_match:
+            return _clean_value(unit_match.group(1)).rstrip(".,;")
+
     patterns = [
         r"\bPID\s*[:#\-]?\s*([0-9][0-9\-]{5,25})\b",
         r"\b(?:APN|Parcel\s+(?:No\.?|Number|ID|ID\(s\))|Tax\s+(?:Parcel|Account)(?:\s+(?:No\.?|Number))?)\s*[:#\-]?\s*([A-Z0-9][A-Z0-9\-]{4,25})\b",
@@ -354,6 +364,11 @@ def _extract_parcel_id(text: str) -> str:
         if match:
             return _clean_value(match.group(1)).rstrip(".,;")
     return ""
+
+
+def _extract_unit_designator(address: str) -> str:
+    match = re.search(r"\b(?:Unit|Apt|Apartment|Suite|Ste|#)\s*([A-Z0-9-]+)\b", address or "", re.I)
+    return match.group(1).upper() if match else ""
 
 
 def _extract_owner(text: str, *, signal: str) -> str:

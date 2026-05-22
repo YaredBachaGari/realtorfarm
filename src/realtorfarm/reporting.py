@@ -80,6 +80,8 @@ def build_source_report(
         "accessed_date": accessed.isoformat(),
         "lookback_days": lookback_days,
         "max_records": max_records,
+        "pipeline_status": _pipeline_status(len(raw_records), len(accepted_records), qualifying),
+        "recommended_next_action": _recommended_next_action(len(raw_records), len(accepted_records), qualifying),
         "input": {
             "path": str(input_path),
             "raw_records": len(raw_records),
@@ -98,6 +100,26 @@ def build_source_report(
 
 def _source_name(row: dict[str, str]) -> str:
     return row.get("source", "").strip() or "unknown"
+
+
+def _pipeline_status(raw_count: int, accepted_count: int, qualifying_count: int) -> str:
+    if raw_count == 0:
+        return "empty_collector_feed"
+    if accepted_count == 0:
+        return "raw_records_rejected_by_date_or_required_fields"
+    if qualifying_count == 0:
+        return "records_found_but_not_outreach_qualifying"
+    return "active_records_found"
+
+
+def _recommended_next_action(raw_count: int, accepted_count: int, qualifying_count: int) -> str:
+    if raw_count == 0:
+        return "populate_and_verify_source collectors; do not interpret zero rows as zero market distress"
+    if accepted_count == 0:
+        return "inspect date-window and required-field rejections before relaxing qualification rules"
+    if qualifying_count == 0:
+        return "add corroborating source enrichment before outreach"
+    return "run listing-status labeling and prioritize pre-market leads"
 
 
 def _record_identity(row: dict[str, str]) -> tuple[str, str, str, str, str]:

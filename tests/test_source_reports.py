@@ -64,6 +64,7 @@ def test_source_report_explains_date_window_and_qualification_counts(tmp_path: P
     )
 
     assert report["city"] == "burien"
+    assert report["pipeline_status"] == "active_records_found"
     assert report["input"]["raw_records"] == 3
     assert report["input"]["accepted_records"] == 1
     assert report["input"]["rejected_date_window"] == 1
@@ -81,6 +82,22 @@ def test_source_report_explains_date_window_and_qualification_counts(tmp_path: P
             "outreach_qualifying": 1,
         }
     ]
+
+
+def test_source_report_labels_empty_collector_pipeline(tmp_path: Path):
+    records = tmp_path / "merged.csv"
+    write_records(records, [])
+
+    report = build_source_report(
+        city="kent",
+        input_path=records,
+        accessed_date="2026-05-22",
+        lookback_days=30,
+        max_records=99,
+    )
+
+    assert report["pipeline_status"] == "empty_collector_feed"
+    assert report["recommended_next_action"] == "populate_and_verify_source collectors; do not interpret zero rows as zero market distress"
 
 
 def test_notice_diagnostics_queue_candidates_missing_parcel(tmp_path: Path):

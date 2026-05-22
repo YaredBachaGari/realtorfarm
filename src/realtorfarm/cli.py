@@ -107,7 +107,11 @@ def cmd_scrape_notices(args: argparse.Namespace) -> int:
 def _write_records_csv(path: str, records: list[dict[str, str]]) -> None:
     import csv
 
-    fieldnames = ["owner", "property_address", "parcel_id", "signal", "source", "source_url", "recorded_date", "case_id", "notes"]
+    fieldnames = [
+        "owner", "property_address", "parcel_id", "signal", "source", "source_url",
+        "recorded_date", "case_id", "notes", "listed_status", "listing_date",
+        "listing_url", "listing_source",
+    ]
     with Path(path).open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()

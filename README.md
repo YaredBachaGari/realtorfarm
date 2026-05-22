@@ -136,6 +136,8 @@ Note: King County Recorder Landmark document search returns `Invalid Captcha` to
    python3 scripts/normalize_records.py data/raw/2026-05-20/recorder.csv data/normalized/recorder.csv
    ```
 4. Merge normalized files into `data/cities/<city>/daily/merged.csv`.
+   The canonical feed may also include listing-status enrichment columns:
+   `listed_status`, `listing_date`, `listing_url`, and `listing_source`. These columns are labels, not filters: already-listed or stale leads remain in the output with `lead_status.market_label` so reviewers can see whether the hunter was early or late.
    Public legal notice sources can now be extracted directly before merging:
    ```bash
    python3 -m realtorfarm.cli scrape-notices \
@@ -188,6 +190,22 @@ Initial official-source targets are the same county-level sources for Burien, Ke
 - Tier 4 alone never qualifies.
 
 The implementation is in `src/realtorfarm/scoring.py` and covered by tests.
+
+## Pre-Market Methodology and Late-Lead Labels
+
+The hunter should optimize for pre-market distress, but it must not hide stale/outdated finds. Every enriched lead can carry a `lead_status` object:
+
+- `pre_market_candidate`: distress notice predates any known listing.
+- `already_listed_before_notice`: listing predates the distress notice; keep it, but treat it as a late/outdated lead.
+- `listed_same_day_as_notice`: listing and distress notice landed on the same day.
+- `listed_after_notice`: distress notice came first, then the property listed.
+- `listing_status_unknown`: no listing check/enrichment was supplied yet.
+
+Zero-output city feeds are not interpreted as zero market opportunity. `out/<city>/source-report-latest.json` now includes `pipeline_status`; `empty_collector_feed` means the collector/enrichment pipeline produced no raw rows and needs source population before comparing against platforms like PropertyRadar.
+
+Multi-parcel notices are matched to the exact unit/address when possible, so a document that mentions Unit A and Unit B parcels does not blindly emit the first parcel in the notice.
+
+Compared with PropertyRadar, this project is still narrower: it currently depends on explicit public-record collectors and verified address/parcel rows. To close the methodology gap, source population should expand across recorder filings, assessor/tax delinquency, court/probate/lis pendens, code enforcement, and listing-status enrichment while preserving evidence and labels.
 
 ## Legal and Ethics Guardrails
 
