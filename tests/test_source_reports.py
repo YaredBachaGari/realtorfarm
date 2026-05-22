@@ -2,6 +2,7 @@ import csv
 import json
 import subprocess
 import sys
+from datetime import date
 from pathlib import Path
 
 from realtorfarm.extractors.public_notices import scrape_notice_sources_with_diagnostics
@@ -196,6 +197,21 @@ def test_run_daily_active_mode_uses_30_day_lookback(tmp_path: Path):
     output_payload = json.loads(output.read_text(encoding="utf-8").removeprefix("data= "))
     assert report_payload["lookback_days"] == 30
     assert output_payload["properties"][0]["parcel id"] == "8944030050"
+
+
+def test_run_daily_blob_upload_plan_preserves_historical_snapshots():
+    from scripts.run_daily import build_blob_upload_plan
+
+    plan = build_blob_upload_plan(
+        blob_prefix="burien",
+        accessed_date=date(2026, 5, 22),
+        latest_name="latest.json.txt",
+    )
+
+    assert plan == [
+        {"label": "dated", "pathname": "burien/2026-05-22.json.txt", "allow_overwrite": False},
+        {"label": "latest", "pathname": "burien/latest.json.txt", "allow_overwrite": True},
+    ]
 
 
 def test_run_daily_writes_source_report_file(tmp_path: Path):

@@ -13,6 +13,24 @@ from realtorfarm.blob import upload_file_to_vercel_blob
 from realtorfarm.reporting import build_source_report
 
 
+def build_blob_upload_plan(*, blob_prefix: str, accessed_date: date, latest_name: str) -> list[dict[str, object]]:
+    """Return Vercel Blob uploads, keeping dated snapshots immutable for history."""
+    prefix = blob_prefix.rstrip("/")
+    latest = latest_name.lstrip("/")
+    return [
+        {
+            "label": "dated",
+            "pathname": f"{prefix}/{accessed_date.isoformat()}.json.txt",
+            "allow_overwrite": False,
+        },
+        {
+            "label": "latest",
+            "pathname": f"{prefix}/{latest}",
+            "allow_overwrite": True,
+        },
+    ]
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--city", default="burien", help="City slug used for organized data/output paths and blob prefix")
@@ -61,11 +79,20 @@ def main() -> int:
     print(f"wrote source report {source_report_path}")
     if args.upload_blob:
         accessed = date.fromisoformat(args.accessed_date) if args.accessed_date else date.today()
-        dated_pathname = f"{blob_prefix.rstrip('/')}/{accessed.isoformat()}.json.txt"
-        latest_pathname = f"{blob_prefix.rstrip('/')}/{args.blob_latest_name.lstrip('/')}"
-        dated = upload_file_to_vercel_blob(output_path, pathname=dated_pathname)
-        latest = upload_file_to_vercel_blob(output_path, pathname=latest_pathname)
-        print(f"uploaded Vercel Blob dated={dated.get('pathname', dated_pathname)} latest={latest.get('pathname', latest_pathname)}")
+        uploads = build_blob_upload_plan(
+            blob_prefix=blob_prefix,
+            accessed_date=accessed,
+            latest_name=args.blob_latest_name,
+        )
+        results = {}
+        for upload in uploads:
+            result = upload_file_to_vercel_blob(
+                output_path,
+                pathname=str(upload["pathname"]),
+                allow_overwrite=bool(upload["allow_overwrite"]),
+            )
+            results[str(upload["label"])] = result.get("pathname", upload["pathname"])
+        print(f"uploaded Vercel Blob dated={results['dated']} latest={results['latest']}")
     return 0
 
 
