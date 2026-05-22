@@ -65,25 +65,104 @@ def scrape_notice_sources(
     - local HTML/text fixtures or downloaded notice files,
     - index/search pages containing links to individual notice pages.
     """
+    records, _diagnostics = scrape_notice_sources_with_diagnostics(
+        sources,
+        accessed=accessed,
+        max_pages=max_pages,
+        target_city=target_city,
+    )
+    return records
+
+
+def scrape_notice_sources_with_diagnostics(
+    sources: list[str],
+    *,
+    accessed: date | None = None,
+    accessed_date: str | None = None,
+    max_pages: int = 25,
+    target_city: str = "Burien",
+) -> tuple[list[dict[str, str]], dict]:
+    """Fetch notice sources and return accepted rows plus candidate/rejection diagnostics."""
+    if accessed_date:
+        accessed = date.fromisoformat(accessed_date)
     accessed = accessed or date.today()
     records: list[dict[str, str]] = []
+    candidates: list[dict] = []
     seen: set[str] = set()
+    pages_attempted = 0
+    pages_with_distress = 0
 
     for source in sources:
         for page_source, text in _source_pages(source, max_pages=max_pages):
             if page_source in seen:
                 continue
             seen.add(page_source)
-            records.extend(
-                extract_notice_records(
-                    text,
-                    source_url=page_source,
-                    accessed=accessed,
-                    target_city=target_city,
-                )
+            pages_attempted += 1
+            accepted = extract_notice_records(
+                text,
+                source_url=page_source,
+                accessed=accessed,
+                target_city=target_city,
             )
+            records.extend(accepted)
+            candidate = extract_notice_candidate(
+                text,
+                source_url=page_source,
+                accessed=accessed,
+                target_city=target_city,
+            )
+            if candidate["signals"]:
+                pages_with_distress += 1
+            if not accepted and candidate["rejection_reason"]:
+                candidates.append(candidate)
 
-    return _dedupe_records(records)
+    deduped = _dedupe_records(records)
+    return deduped, {
+        "pages_attempted": pages_attempted,
+        "pages_with_distress": pages_with_distress,
+        "accepted_records": len(deduped),
+        "candidates": candidates,
+    }
+
+
+def extract_notice_candidate(
+    text: str,
+    *,
+    source_url: str,
+    accessed: date | None = None,
+    target_city: str = "Burien",
+) -> dict:
+    """Return a non-emitted candidate with a reason when notice text needs enrichment."""
+    accessed = accessed or date.today()
+    plain = normalize_notice_text(text)
+    mentions_city = _mentions_target_city(plain, target_city)
+    contains_distress = _contains_distress_signal(plain)
+    signals = _detect_signals(plain) if contains_distress else []
+    address = _extract_address(plain, target_city=target_city) if mentions_city else ""
+    parcel_id = _extract_parcel_id(plain)
+    case_id = _extract_case_id(plain)
+    recorded_date = _extract_recorded_date(plain) or accessed.isoformat()
+    rejection_reason = ""
+    if not mentions_city:
+        rejection_reason = "missing_target_city"
+    elif not contains_distress or not signals:
+        rejection_reason = "missing_distress_signal"
+    elif not address:
+        rejection_reason = "missing_target_city_property_address"
+    elif not parcel_id:
+        rejection_reason = "missing_parcel_id"
+
+    return {
+        "source_url": source_url,
+        "target_city": target_city,
+        "signals": signals,
+        "property_address": address,
+        "parcel_id": parcel_id,
+        "case_id": case_id,
+        "recorded_date": recorded_date,
+        "rejection_reason": rejection_reason,
+        "enrichment_needed": bool(rejection_reason),
+    }
 
 
 def extract_notice_records(

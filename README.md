@@ -144,16 +144,23 @@ Note: King County Recorder Landmark document search returns `Invalid Captcha` to
      --city Burien \
      --output out/burien/public-notices.json.txt
    ```
-5. Run deterministic scoring and upload the daily `data= {...}` output to the private Vercel Blob store `distress-signal` when `BLOB_READ_WRITE_TOKEN` is available. The default testing window processes fewer than 100 raw records (`--max-records 99`) and ignores records older than 10 days from the accessed date (`--lookback-days 10`):
+5. Run deterministic scoring and upload the daily `data= {...}` output to the private Vercel Blob store `distress-signal` when `BLOB_READ_WRITE_TOKEN` is available. Prefer the rolling active-leads mode for normal hunting; it uses a 30-day lookback so sparse/delayed public records do not disappear after one day:
    ```bash
    python3 scripts/run_daily.py \
-     --input data/daily/burien-merged.csv \
+     --city burien \
+     --mode active \
      --max-records 99 \
-     --lookback-days 10 \
-     --upload-blob \
-     --blob-prefix burien
+     --upload-blob
    ```
-   This reads `data/cities/burien/daily/merged.csv` by default and writes both `burien/YYYY-MM-DD.json.txt` and an overwritten `burien/latest.json.txt` blob. Use `--city kent` or `--city tukwila` for other markets; each reads `data/cities/<city>/daily/merged.csv` and uploads to the matching blob prefix.
+   Use strict same-day delta mode only when the goal is "what was newly found today":
+   ```bash
+   python3 scripts/run_daily.py \
+     --city burien \
+     --mode delta \
+     --max-records 99 \
+     --upload-blob
+   ```
+   This reads `data/cities/burien/daily/merged.csv` by default, writes `out/burien/distressed-latest.json.txt`, writes an observability report at `out/burien/source-report-latest.json`, and uploads both `burien/YYYY-MM-DD.json.txt` and an overwritten `burien/latest.json.txt` blob. Use `--city kent` or `--city tukwila` for other markets; each reads `data/cities/<city>/daily/merged.csv` and uploads to the matching blob prefix.
 6. Validate output:
    ```bash
    python3 scripts/validate_output.py out/burien/distressed-latest.json.txt
