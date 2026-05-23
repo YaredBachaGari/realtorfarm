@@ -1,6 +1,6 @@
 # /realtorfarm
 
-Distressed-property hunting command suite for Burien, WA.
+Distressed-property hunting command suite for Burien, Kent, and Tukwila, WA.
 
 ## /realtorfarm install
 Run:
@@ -30,19 +30,20 @@ realtorfarm hunt --input data/cities/kent/daily/merged.csv \
 ```
 
 ## /realtorfarm scrape-notices <url-or-file>
-Fetch public legal notice pages, index pages, Browser Use Cloud Landmark exports, or downloaded HTML/text files and extract actual Burien distressed-property records into the requested `data= {...}` output shape. For CAPTCHA-blocked King County Recorder Landmark searches, use Browser Use Cloud to retrieve the Landmark result/detail text, enrich with King County parcel/address data when needed, save it locally, then pass that file as `--source`.
+Fetch public legal notice pages, index pages, Browser Use Cloud Landmark exports, or downloaded HTML/text files and extract distressed-property records for the target city into the requested `data= {...}` output shape. For CAPTCHA-blocked King County Recorder Landmark searches, use Browser Use Cloud to retrieve the Landmark result/detail text, enrich with King County parcel/address data when needed, save it locally, then pass that file as `--source`.
 ```bash
 realtorfarm scrape-notices \
+  --city <city> \
   --source <legal-notice-url-or-file> \
   --records-output data/normalized/public-notices.csv \
-  --output out/burien-public-notices.json.txt \
+  --output out/<city>/public-notices.json.txt \
   --evidence
 ```
 
 ## /realtorfarm daily <records.csv>
 Run validation + scoring:
 ```bash
-python3 scripts/run_daily.py --city burien --max-records 99 --lookback-days 10
+python3 scripts/run_daily.py --city <city> --max-records 99 --lookback-days 10
 ```
 
 ## /realtorfarm research <parcel-or-owner>

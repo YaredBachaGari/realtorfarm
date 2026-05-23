@@ -10,8 +10,8 @@ Daily automated flow (via GitHub Actions `daily.yml`):
 
 Manual one-off or backfill:
 ```bash
-python scripts/collect_daily.py --city burien --lookback-days 30
-python scripts/run_daily.py --city burien --upload-blob
+python scripts/collect_daily.py --city <city> --lookback-days 30
+python scripts/run_daily.py --city <city> --upload-blob
 ```
 
 Never summarize raw rows with AI; pass normalized files to the scoring script.
