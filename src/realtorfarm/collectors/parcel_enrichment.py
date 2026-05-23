@@ -6,7 +6,7 @@ from datetime import date
 
 from .browser_use import run_task
 
-PARCEL_VIEWER_URL = "https://blue.kingcounty.com/Assessor/eRealProperty/default.aspx"
+PARCEL_VIEWER_URL = "https://parcelviewer.kingcounty.gov"
 
 _PARCEL_RE = re.compile(r"\b([0-9]{6}-[0-9]{4}(?:-[0-9]{2})?)\b")
 _ADDRESS_RE = re.compile(
@@ -79,6 +79,7 @@ def _enrich_one(candidate: dict, *, city: str) -> dict[str, str] | None:
 
     signals = candidate.get("signals", [])
     if not signals:
+        print(f"[parcel_enrichment] candidate {candidate.get('case_id', '?')} has no signals after enrichment — skipping")
         return None
 
     return {

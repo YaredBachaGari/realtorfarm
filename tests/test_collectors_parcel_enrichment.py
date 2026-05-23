@@ -72,9 +72,10 @@ def test_enrichment_respects_max_cap():
     candidates = [CANDIDATE_MISSING_PARCEL] * 20
 
     with patch("realtorfarm.collectors.parcel_enrichment.run_task", return_value=PARCEL_VIEWER_RESULT_WITH_PARCEL) as mock_bu:
-        enrich_candidates(candidates, city="Kent", max_enrichments=3)
+        records = enrich_candidates(candidates, city="Kent", max_enrichments=3)
 
     assert mock_bu.call_count == 3
+    assert len(records) == 3
 
 
 def test_enrichment_returns_empty_on_zero_cap():
