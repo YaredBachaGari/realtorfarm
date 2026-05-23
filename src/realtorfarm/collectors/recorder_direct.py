@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from .browser_use import run_task
 
@@ -43,7 +43,7 @@ def collect_recorder_direct(
             )
             records.extend(r)
             candidates.extend(c)
-        except Exception as exc:
+        except (RuntimeError, TimeoutError, OSError) as exc:
             print(f"[recorder_direct] {doc_type} task failed for {city}: {exc}")
 
     return records, candidates
@@ -163,7 +163,6 @@ def _extract_date(text: str) -> str:
     m = re.search(r"\b(\d{1,2}/\d{1,2}/\d{4})\b", text)
     if m:
         try:
-            from datetime import datetime
             return datetime.strptime(m.group(1), "%m/%d/%Y").date().isoformat()
         except ValueError:
             pass
