@@ -1,6 +1,6 @@
 ---
 name: realtorfarm
-description: Hunt Burien WA distressed-property public-record signals before listings.
+description: Hunt Burien, Kent, and Tukwila WA distressed-property public-record signals before listings.
 ---
 
 # RealtorFarm Skill
@@ -9,13 +9,24 @@ Use this skill when running or extending the distressed-property hunting system.
 
 ## Daily Workflow
 
-1. Collect official-source exports into `data/raw/YYYY-MM-DD/`.
-2. Normalize each export with `scripts/normalize_records.py`.
-3. Merge normalized rows into one CSV with canonical columns.
-4. Run `python scripts/run_daily.py --input <merged.csv> --max-records 99 --lookback-days 10`.
-   During the Burien test phase, keep extraction under 100 raw records and restrict records to the most recent 10 days from the run/accessed date.
-5. Validate output with `python scripts/validate_output.py out/burien-distressed-latest.json.txt`.
-6. Run AI deep research only for outreach-qualified leads.
+1. **Collect** records for each city:
+   ```bash
+   python scripts/collect_daily.py --city burien --lookback-days 1
+   python scripts/collect_daily.py --city kent   --lookback-days 1
+   python scripts/collect_daily.py --city tukwila --lookback-days 1
+   ```
+   This appends net-new rows to `data/cities/<city>/daily/merged.csv`.
+
+2. **Score and upload** for each city:
+   ```bash
+   python scripts/run_daily.py --city burien --upload-blob
+   python scripts/run_daily.py --city kent   --upload-blob
+   python scripts/run_daily.py --city tukwila --upload-blob
+   ```
+
+3. **Backfill** (first run only): use `--lookback-days 30` in collect step.
+
+4. Run AI deep research only for outreach-qualified leads.
 
 ## Qualification Logic
 
