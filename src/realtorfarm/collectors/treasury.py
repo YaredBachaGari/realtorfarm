@@ -12,9 +12,6 @@ TREASURY_URL = (
 )
 
 _PARCEL_RE = re.compile(r"\b([0-9]{6}-[0-9]{4}(?:-[0-9]{2})?)\b")
-_CITY_PATTERN = re.compile(
-    r"\b(?:Burien|Kent|Tukwila)\b[^|\n]{0,60}WA\s+\d{5}", re.I
-)
 
 
 def collect_treasury(*, city: str) -> list[dict[str, str]]:

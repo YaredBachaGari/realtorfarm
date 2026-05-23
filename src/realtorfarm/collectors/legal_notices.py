@@ -20,7 +20,14 @@ def collect_legal_notices(
     city: str,
     lookback_days: int = 1,
 ) -> tuple[list[dict[str, str]], list[dict]]:
-    """Scrape legal notice publications via Firecrawl and extract target-city distress records."""
+    """Scrape legal notice publications via Firecrawl and extract target-city distress records.
+
+    Note: lookback_days is forwarded from the orchestrator but Firecrawl always scrapes
+    the current page state. Legal notice publications aggregate recent filings, so a wider
+    lookback window naturally captures more history without explicit date filtering.
+    """
+    if lookback_days != 1:
+        print(f"[legal_notices] lookback_days={lookback_days} — Firecrawl scrapes current page; broader lookback captures more publication history")
     temp_files: list[Path] = []
     source_paths: list[str] = []
 

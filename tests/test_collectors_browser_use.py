@@ -1,4 +1,4 @@
-from unittest.mock import patch, MagicMock, call
+from unittest.mock import patch, MagicMock
 from realtorfarm.collectors.browser_use import run_task
 
 
@@ -63,3 +63,16 @@ def test_run_task_raises_on_missing_api_key(monkeypatch):
     monkeypatch.delenv("BROWSER_USE_API_KEY", raising=False)
     with pytest.raises(ValueError, match="BROWSER_USE_API_KEY"):
         run_task("task")
+
+
+def test_run_task_raises_timeout_when_deadline_exceeded():
+    import pytest
+    submit_resp = _mock_response({"id": "task_slow"})
+    running_resp = _mock_response({"id": "task_slow", "status": "running", "output": None})
+
+    with patch("realtorfarm.collectors.browser_use.requests.post", return_value=submit_resp), \
+         patch("realtorfarm.collectors.browser_use.requests.get", return_value=running_resp), \
+         patch("realtorfarm.collectors.browser_use.time.sleep"), \
+         patch("realtorfarm.collectors.browser_use.time.time", side_effect=[0, 0, 999]):
+        with pytest.raises(TimeoutError):
+            run_task("task", api_key="bu_test", timeout=1, poll_interval=1)
