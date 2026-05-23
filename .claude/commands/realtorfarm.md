@@ -11,13 +11,22 @@ pip install -e '.[dev]'
 pytest -q
 ```
 
+## /realtorfarm collect <city> [--lookback-days N]
+Collect distressed-property records for a city and append to its merged.csv:
+```bash
+python scripts/collect_daily.py --city <city> --lookback-days 1
+```
+Use `--lookback-days 30` for initial 30-day backfill. Cities: `burien`, `kent`, `tukwila`.
+
 ## /realtorfarm signals
 Run `realtorfarm signals` to print Tier 1-4 signal definitions.
 
 ## /realtorfarm hunt <records.csv>
 Run deterministic scoring without AI tokens. Defaults are set for the current test phase: fewer than 100 raw records (`--max-records 99`) and no records older than 10 days (`--lookback-days 10`).
 ```bash
-realtorfarm hunt --input <records.csv> --max-records 99 --lookback-days 10 --evidence --output out/burien-distressed-latest.json.txt
+realtorfarm hunt --input data/cities/kent/daily/merged.csv \
+  --max-records 99 --lookback-days 10 --evidence \
+  --output out/kent/distressed-latest.json.txt
 ```
 
 ## /realtorfarm scrape-notices <url-or-file>
@@ -33,7 +42,7 @@ realtorfarm scrape-notices \
 ## /realtorfarm daily <records.csv>
 Run validation + scoring:
 ```bash
-python3 scripts/run_daily.py --input <records.csv> --max-records 99 --lookback-days 10
+python3 scripts/run_daily.py --city burien --max-records 99 --lookback-days 10
 ```
 
 ## /realtorfarm research <parcel-or-owner>
