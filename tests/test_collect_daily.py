@@ -81,3 +81,25 @@ def test_collect_daily_creates_merged_csv_if_missing(tmp_path, monkeypatch):
     assert merged.exists()
     rows = list(csv.DictReader(merged.open(newline="", encoding="utf-8")))
     assert len(rows) == 1
+
+
+def test_collect_for_city_calls_recorder_direct_when_enabled(monkeypatch):
+    monkeypatch.setenv("RECORDER_DIRECT_ENABLED", "true")
+    monkeypatch.setenv("BROWSER_USE_MAX_ENRICHMENTS", "0")
+    with patch("realtorfarm.collectors.recorder_direct.run_task", return_value=""), \
+         patch("realtorfarm.collectors.legal_notices.scrape_url", return_value=""), \
+         patch("realtorfarm.collectors.treasury.scrape_url", return_value=""):
+        from realtorfarm.collectors import collect_for_city
+        records, candidates = collect_for_city(city="Kent", lookback_days=1)
+    assert isinstance(records, list)
+
+
+def test_collect_for_city_calls_courts_when_enabled(monkeypatch):
+    monkeypatch.setenv("COURTS_ENABLED", "true")
+    monkeypatch.setenv("BROWSER_USE_MAX_ENRICHMENTS", "0")
+    with patch("realtorfarm.collectors.courts.run_task", return_value=""), \
+         patch("realtorfarm.collectors.legal_notices.scrape_url", return_value=""), \
+         patch("realtorfarm.collectors.treasury.scrape_url", return_value=""):
+        from realtorfarm.collectors import collect_for_city
+        records, candidates = collect_for_city(city="Kent", lookback_days=1)
+    assert isinstance(records, list)

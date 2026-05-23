@@ -44,6 +44,8 @@ jobs:
           FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
           BROWSER_USE_API_KEY: ${{ secrets.BROWSER_USE_API_KEY }}
           BROWSER_USE_MAX_ENRICHMENTS: ${{ vars.BROWSER_USE_MAX_ENRICHMENTS || '10' }}
+          RECORDER_DIRECT_ENABLED: ${{ vars.RECORDER_DIRECT_ENABLED || 'false' }}
+          COURTS_ENABLED: ${{ vars.COURTS_ENABLED || 'false' }}
         run: |
           python scripts/collect_daily.py \
             --city ${{ matrix.city }} \
