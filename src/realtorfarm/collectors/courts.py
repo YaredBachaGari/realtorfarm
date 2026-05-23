@@ -46,7 +46,7 @@ def collect_courts(
             )
             records.extend(r)
             candidates.extend(c)
-        except (RuntimeError, TimeoutError, OSError) as exc:
+        except (RuntimeError, TimeoutError, OSError, ValueError) as exc:
             print(f"[courts] {case_type} task failed for {city}: {exc}")
 
     return records, candidates

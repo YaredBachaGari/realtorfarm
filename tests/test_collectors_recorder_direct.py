@@ -70,3 +70,12 @@ def test_collect_recorder_direct_returns_candidates_for_missing_parcel(monkeypat
     assert len(candidates) == 1
     assert candidates[0]["rejection_reason"] == "missing_parcel_id"
     assert candidates[0]["property_address"] == "999 SW 152nd St, Burien, WA 98166"
+
+
+def test_collect_recorder_direct_handles_missing_api_key(monkeypatch):
+    monkeypatch.setenv("RECORDER_DIRECT_ENABLED", "true")
+    with patch("realtorfarm.collectors.recorder_direct.run_task", side_effect=ValueError("BROWSER_USE_API_KEY is required")):
+        records, candidates = collect_recorder_direct(city="Burien", lookback_days=1)
+    # ValueError must not propagate — collector must return empty lists
+    assert records == []
+    assert candidates == []

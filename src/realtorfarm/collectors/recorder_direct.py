@@ -43,7 +43,7 @@ def collect_recorder_direct(
             )
             records.extend(r)
             candidates.extend(c)
-        except (RuntimeError, TimeoutError, OSError) as exc:
+        except (RuntimeError, TimeoutError, OSError, ValueError) as exc:
             print(f"[recorder_direct] {doc_type} task failed for {city}: {exc}")
 
     return records, candidates

@@ -68,3 +68,11 @@ def test_collect_courts_uses_minimum_7_day_lookback(monkeypatch):
     from datetime import date, timedelta
     seven_days_ago = (date.today() - timedelta(days=7)).isoformat()
     assert seven_days_ago in first_call_arg
+
+
+def test_collect_courts_handles_missing_api_key(monkeypatch):
+    monkeypatch.setenv("COURTS_ENABLED", "true")
+    with patch("realtorfarm.collectors.courts.run_task", side_effect=ValueError("BROWSER_USE_API_KEY is required")):
+        records, candidates = collect_courts(city="Burien", lookback_days=1)
+    assert records == []
+    assert candidates == []
