@@ -23,11 +23,14 @@ def collect_for_city(
     treasury_records = collect_treasury(city=city)
     records.extend(treasury_records)
 
+    # Outer guard skips Browser Use quota when flag is off.
+    # collect_recorder_direct also self-guards for callers outside collect_for_city.
     if os.environ.get("RECORDER_DIRECT_ENABLED", "").lower() == "true":
         rec_records, rec_candidates = collect_recorder_direct(city=city, lookback_days=lookback_days)
         records.extend(rec_records)
         candidates.extend(rec_candidates)
 
+    # Same dual-guard pattern as recorder_direct above.
     if os.environ.get("COURTS_ENABLED", "").lower() == "true":
         court_records, court_candidates = collect_courts(city=city, lookback_days=lookback_days)
         records.extend(court_records)
