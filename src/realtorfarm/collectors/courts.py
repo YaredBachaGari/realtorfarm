@@ -138,7 +138,7 @@ def _extract_address(text: str, *, city: str) -> str:
 
 def _extract_owner(text: str) -> str:
     m = re.search(
-        r"(?:Petitioner|Plaintiff|Grantor|Party)\s*[:\-]?\s*([^\n,]{2,80})", text, re.I
+        r"(?:Petitioner|Plaintiff|Grantor|Party(?!\s+Address))\s*[:\-]?\s*([^\n,]{2,80})", text, re.I
     )
     return m.group(1).strip().upper() if m else "UNKNOWN OWNER"
 
