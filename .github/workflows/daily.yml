@@ -21,6 +21,7 @@ jobs:
       matrix:
         city: [burien, kent, tukwila]
       fail-fast: false
+      max-parallel: 1   # prevent concurrent git push races on the same branch
 
     steps:
       - name: Checkout
@@ -37,11 +38,8 @@ jobs:
       - name: Install
         run: pip install -e ".[dev]"
 
-      - name: Skip city if workflow_dispatch targeted a different city
-        if: ${{ github.event.inputs.city != '' && github.event.inputs.city != matrix.city }}
-        run: echo "Skipping ${{ matrix.city }} — targeted city is ${{ github.event.inputs.city }}" && exit 0
-
       - name: Collect records
+        if: ${{ github.event_name == 'schedule' || github.event.inputs.city == '' || github.event.inputs.city == matrix.city }}
         env:
           FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
           BROWSER_USE_API_KEY: ${{ secrets.BROWSER_USE_API_KEY }}
@@ -52,6 +50,7 @@ jobs:
             --lookback-days ${{ github.event.inputs.lookback_days || '1' }}
 
       - name: Score and upload
+        if: ${{ github.event_name == 'schedule' || github.event.inputs.city == '' || github.event.inputs.city == matrix.city }}
         env:
           BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
         run: |
@@ -60,9 +59,10 @@ jobs:
             --upload-blob
 
       - name: Commit updated merged.csv
+        if: ${{ github.event_name == 'schedule' || github.event.inputs.city == '' || github.event.inputs.city == matrix.city }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/cities/${{ matrix.city }}/daily/merged.csv
           git diff --cached --quiet || git commit -m "chore: daily collection ${{ matrix.city }} $(date -u +%Y-%m-%d)"
-          git push
+          git pull --rebase origin ${{ github.ref_name }} && git push

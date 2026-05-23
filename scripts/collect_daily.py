@@ -71,10 +71,12 @@ def _load_existing(path: Path) -> list[dict]:
 
 def _write_merged(path: Path, rows: list[dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="", encoding="utf-8") as fh:
+    tmp = path.with_suffix(".tmp")
+    with tmp.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=CANONICAL_FIELDNAMES, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows)
+    tmp.replace(path)  # atomic rename — protects existing rows if write is interrupted
 
 
 if __name__ == "__main__":

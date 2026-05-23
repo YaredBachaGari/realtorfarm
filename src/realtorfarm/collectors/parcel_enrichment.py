@@ -50,9 +50,19 @@ def enrich_candidates(
     return records
 
 
+_PARCEL_PATTERN = re.compile(r"^[0-9]{6}-[0-9]{4}(?:-[0-9]{2})?$")
+_ADDRESS_MAX_LEN = 120
+
+
 def _enrich_one(candidate: dict, *, city: str) -> dict[str, str] | None:
     parcel_id = candidate.get("parcel_id", "")
     address = candidate.get("property_address", "")
+
+    # Validate inputs before injecting into the Browser Use task prompt
+    if parcel_id and not _PARCEL_PATTERN.match(parcel_id):
+        print(f"[parcel_enrichment] rejected malformed parcel_id: {parcel_id!r}")
+        return None
+    address = address[:_ADDRESS_MAX_LEN]  # cap length; trim any injection payload
 
     if parcel_id and not address:
         task = (

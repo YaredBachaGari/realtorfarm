@@ -68,4 +68,5 @@ def _extract_owner_from_line(line: str) -> str:
     parts = [p.strip() for p in line.split("|") if p.strip()]
     if len(parts) >= 2:
         return parts[1].upper()
+    print(f"[treasury] could not extract owner from line (no pipe-delimited columns): {line[:80]!r}")
     return "UNKNOWN OWNER"
