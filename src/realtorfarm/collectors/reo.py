@@ -23,15 +23,6 @@ _ADDRESS_RE = re.compile(
 
 _HUD_URL = "https://www.hudhomestore.gov/Listing/PropList.aspx?sState=WA&sZip={zip}"
 
-# (source_key, starting_url, display_name)
-_BROWSER_SOURCES: list[tuple[str, str, str]] = [
-    ("homepath",   "https://www.homepath.com/",                               "Fannie Mae HomePath"),
-    ("homesteps",  "https://www.homesteps.com/",                              "Freddie Mac HomeSteps"),
-    ("wellsfargo", "https://reo.wellsfargo.com/",                             "Wells Fargo REO"),
-    ("chase",      "https://www.chase.com/mortgage/real-estate-owned",        "Chase REO"),
-    ("bofa",       "https://realestate.bankofamerica.com/reo",                "Bank of America REO"),
-    ("citi",       "https://www.citimortgage.com/mortgage/real-estate-owned", "Citi REO"),
-]
 
 
 def collect_reo(
@@ -56,17 +47,21 @@ def collect_reo(
 
     # Lender portals — Browser Use, capped by REO_BROWSER_USE_MAX_TASKS
     max_tasks = int(os.environ.get("REO_BROWSER_USE_MAX_TASKS", "6"))
-    tasks_run = 0
-    for _key, url, source_name in _BROWSER_SOURCES:
-        if tasks_run >= max_tasks:
-            break
+    browser_collectors = [
+        _collect_homepath,
+        _collect_homesteps,
+        _collect_wells_fargo,
+        _collect_chase,
+        _collect_bofa,
+        _collect_citi,
+    ]
+    for fn in browser_collectors[:max_tasks]:
         try:
-            r, c = _collect_browser_source(city=city, url=url, source_name=source_name)
+            r, c = fn(city=city)
             records.extend(r)
             candidates.extend(c)
         except (RuntimeError, TimeoutError, OSError, ValueError) as exc:
-            print(f"[reo] {source_name} task failed for {city}: {exc}")
-        tasks_run += 1
+            print(f"[reo] {fn.__name__} task failed for {city}: {exc}")
 
     records, candidates = _deduplicate(records, candidates)
     return records, candidates
@@ -92,14 +87,71 @@ def _collect_hud(*, city: str, zips: list[str]) -> tuple[list[dict[str, str]], l
     return records, candidates
 
 
-def _collect_browser_source(
-    *, city: str, url: str, source_name: str
-) -> tuple[list[dict[str, str]], list[dict]]:
+# (source_key, starting_url, display_name) table removed — see named wrappers below
+
+def _collect_homepath(*, city: str) -> tuple[list[dict[str, str]], list[dict]]:
+    url = "https://www.homepath.com/"
+    task = (
+        f"Go to {url} and search for homes in {city}, WA. "
+        f"For each listing return: full property address, list price, MLS or property ID. "
+        f"One property per line."
+    )
+    return _collect_browser_source(city=city, url=url, source_name="Fannie Mae HomePath", task=task)
+
+
+def _collect_homesteps(*, city: str) -> tuple[list[dict[str, str]], list[dict]]:
+    url = "https://www.homesteps.com/"
+    task = (
+        f"Go to {url} and search for homes in {city}, WA. "
+        f"For each listing return: full property address, list price, MLS or property ID. "
+        f"One property per line."
+    )
+    return _collect_browser_source(city=city, url=url, source_name="Freddie Mac HomeSteps", task=task)
+
+
+def _collect_wells_fargo(*, city: str) -> tuple[list[dict[str, str]], list[dict]]:
+    url = "https://reo.wellsfargo.com/"
     task = (
         f"Go to {url} and search for REO / bank-owned properties in {city}, WA. "
         f"Return each listing as: address, property ID or loan number if shown. "
         f"One property per line."
     )
+    return _collect_browser_source(city=city, url=url, source_name="Wells Fargo REO", task=task)
+
+
+def _collect_chase(*, city: str) -> tuple[list[dict[str, str]], list[dict]]:
+    url = "https://www.chase.com/mortgage/real-estate-owned"
+    task = (
+        f"Go to {url} and search for REO / bank-owned properties in {city}, WA. "
+        f"Return each listing as: address, property ID or loan number if shown. "
+        f"One property per line."
+    )
+    return _collect_browser_source(city=city, url=url, source_name="Chase REO", task=task)
+
+
+def _collect_bofa(*, city: str) -> tuple[list[dict[str, str]], list[dict]]:
+    url = "https://realestate.bankofamerica.com/reo"
+    task = (
+        f"Go to {url} and search for REO / bank-owned properties in {city}, WA. "
+        f"Return each listing as: address, property ID or loan number if shown. "
+        f"One property per line."
+    )
+    return _collect_browser_source(city=city, url=url, source_name="Bank of America REO", task=task)
+
+
+def _collect_citi(*, city: str) -> tuple[list[dict[str, str]], list[dict]]:
+    url = "https://www.citimortgage.com/mortgage/real-estate-owned"
+    task = (
+        f"Go to {url} and search for REO / bank-owned properties in {city}, WA. "
+        f"Return each listing as: address, property ID or loan number if shown. "
+        f"One property per line."
+    )
+    return _collect_browser_source(city=city, url=url, source_name="Citi REO", task=task)
+
+
+def _collect_browser_source(
+    *, city: str, url: str, source_name: str, task: str
+) -> tuple[list[dict[str, str]], list[dict]]:
     text = run_task(task)
     if not text.strip():
         print(f"[reo] no listings found for {source_name} in {city}")
