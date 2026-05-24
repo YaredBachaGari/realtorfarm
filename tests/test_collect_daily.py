@@ -105,3 +105,17 @@ def test_collect_for_city_calls_courts_when_enabled(monkeypatch):
         records, candidates = collect_for_city(city="Kent", lookback_days=1)
     assert mock_run.called
     assert isinstance(records, list)
+
+
+def test_collect_for_city_calls_reo_when_enabled(monkeypatch):
+    monkeypatch.setenv("REO_ENABLED", "true")
+    monkeypatch.setenv("REO_BROWSER_USE_MAX_TASKS", "0")  # Firecrawl only
+    monkeypatch.setenv("BROWSER_USE_MAX_ENRICHMENTS", "0")
+    with patch("realtorfarm.collectors.reo.scrape_url", return_value="") as mock_scrape, \
+         patch("realtorfarm.collectors.legal_notices.scrape_url", return_value=""), \
+         patch("realtorfarm.collectors.treasury.scrape_url", return_value=""):
+        from realtorfarm.collectors import collect_for_city
+        records, candidates = collect_for_city(city="Burien", lookback_days=1)
+    # 4 HUD zip calls for Burien
+    assert mock_scrape.call_count == 4
+    assert isinstance(records, list)

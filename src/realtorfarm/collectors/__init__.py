@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import os
 
-from .legal_notices import collect_legal_notices
-from .treasury import collect_treasury
-from .recorder_direct import collect_recorder_direct
 from .courts import collect_courts
+from .legal_notices import collect_legal_notices
+from .recorder_direct import collect_recorder_direct
+from .reo import collect_reo
+from .treasury import collect_treasury
 
 
 def collect_for_city(
@@ -35,5 +36,11 @@ def collect_for_city(
         court_records, court_candidates = collect_courts(city=city, lookback_days=lookback_days)
         records.extend(court_records)
         candidates.extend(court_candidates)
+
+    # REO portals: HUD (Firecrawl) + lender portals (Browser Use).
+    if os.environ.get("REO_ENABLED", "").lower() == "true":
+        reo_records, reo_candidates = collect_reo(city=city, lookback_days=lookback_days)
+        records.extend(reo_records)
+        candidates.extend(reo_candidates)
 
     return records, candidates
