@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import re
+from datetime import date
 
 from .browser_use import run_task
 from .firecrawl import scrape_url
@@ -185,7 +186,7 @@ def _parse_hud_text(
                 "signal":           "REO",
                 "source":           "HUD Home Store",
                 "source_url":       source_url,
-                "recorded_date":    "",
+                "recorded_date":    date.today().isoformat(),
                 "case_id":          case_id,
                 "notes":            notes,
             })
@@ -227,7 +228,7 @@ def _parse_portal_text(
                 "signal":           "REO",
                 "source":           source_name,
                 "source_url":       source_url,
-                "recorded_date":    "",
+                "recorded_date":    date.today().isoformat(),
                 "case_id":          case_id,
                 "notes":            notes,
             })
@@ -261,7 +262,12 @@ def _deduplicate(
 
     deduped_candidates: list[dict] = []
     for c in candidates:
-        key = (c.get("property_address", "").lower(), "REO")
+        addr = c.get("property_address", "")
+        if not addr:
+            # No address → no meaningful dedup key; keep all such candidates
+            deduped_candidates.append(c)
+            continue
+        key = (addr.lower(), "REO")
         if key not in seen:
             seen.add(key)
             deduped_candidates.append(c)
