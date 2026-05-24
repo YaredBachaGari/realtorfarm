@@ -119,3 +119,17 @@ def test_collect_for_city_calls_reo_when_enabled(monkeypatch):
     # 4 HUD zip calls for Burien
     assert mock_scrape.call_count == 4
     assert isinstance(records, list)
+
+
+def test_collect_for_city_calls_bankruptcy_when_enabled(monkeypatch):
+    monkeypatch.setenv("BANKRUPTCY_ENABLED", "true")
+    monkeypatch.setenv("BROWSER_USE_MAX_ENRICHMENTS", "0")
+    with patch("realtorfarm.collectors.bankruptcy.search_dockets", return_value=[]) as mock_search, \
+         patch("realtorfarm.collectors.legal_notices.scrape_url", return_value=""), \
+         patch("realtorfarm.collectors.treasury.scrape_url", return_value=""), \
+         patch("realtorfarm.collectors.bankruptcy.time") as mock_time:
+        mock_time.sleep = lambda _: None
+        from realtorfarm.collectors import collect_for_city
+        records, candidates = collect_for_city(city="Burien", lookback_days=1)
+    assert mock_search.call_count == 3  # one per chapter (7, 11, 13)
+    assert isinstance(records, list)

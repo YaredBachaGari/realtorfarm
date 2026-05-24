@@ -48,6 +48,8 @@ jobs:
           COURTS_ENABLED: ${{ vars.COURTS_ENABLED || 'false' }}
           REO_ENABLED: ${{ vars.REO_ENABLED || 'false' }}
           REO_BROWSER_USE_MAX_TASKS: ${{ vars.REO_BROWSER_USE_MAX_TASKS || '6' }}
+          BANKRUPTCY_ENABLED: ${{ vars.BANKRUPTCY_ENABLED || 'false' }}
+          COURTLISTENER_API_KEY: ${{ secrets.COURTLISTENER_API_KEY }}
         run: |
           python scripts/collect_daily.py \
             --city ${{ matrix.city }} \

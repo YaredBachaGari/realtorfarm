@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 
+from .bankruptcy import collect_bankruptcy
 from .courts import collect_courts
 from .legal_notices import collect_legal_notices
 from .recorder_direct import collect_recorder_direct
@@ -42,5 +43,11 @@ def collect_for_city(
         reo_records, reo_candidates = collect_reo(city=city, lookback_days=lookback_days)
         records.extend(reo_records)
         candidates.extend(reo_candidates)
+
+    # Bankruptcy: CourtListener federal court filings (Chapter 7, 11, 13).
+    if os.environ.get("BANKRUPTCY_ENABLED", "").lower() == "true":
+        bk_records, bk_candidates = collect_bankruptcy(city=city, lookback_days=lookback_days)
+        records.extend(bk_records)
+        candidates.extend(bk_candidates)
 
     return records, candidates
