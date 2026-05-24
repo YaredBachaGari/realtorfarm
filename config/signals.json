@@ -3,7 +3,7 @@
     "Tier_1": {
       "NOTS": ["notice of trustee sale", "trustee sale notice"],
       "Probate": ["probate filed", "estate inventory"],
-      "Bankruptcy": ["bankruptcy schedules", "chapter 7", "chapter 13"],
+      "Bankruptcy": ["bankruptcy schedules", "chapter 7", "chapter 11", "chapter 13"],
       "REO": ["real estate owned", "bank owned"]
     },
     "Tier_2": {
