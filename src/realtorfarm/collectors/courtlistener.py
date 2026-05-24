@@ -6,6 +6,7 @@ import os
 import requests
 
 COURTLISTENER_BASE = "https://www.courtlistener.com/api/rest/v3"
+MAX_PAGES = 200  # safeguard: 200 × 100 = 20,000 dockets; covers any realistic lookback window
 
 
 def search_dockets(
@@ -38,13 +39,15 @@ def search_dockets(
 
     results: list[dict] = []
     url: str | None = f"{COURTLISTENER_BASE}/dockets/"
-    while url:
+    page = 0
+    while url and page < MAX_PAGES:
         resp = requests.get(url, headers=headers, params=params, timeout=30)
         resp.raise_for_status()
         data = resp.json()
         results.extend(data.get("results", []))
         url = data.get("next")
         params = {}  # next URL already encodes all query params
+        page += 1
 
     return results
 
@@ -65,16 +68,19 @@ def get_parties(
         raise ValueError("COURTLISTENER_API_KEY is required")
 
     headers = {"Authorization": f"Token {key}"}
-    params = {
+    url: str | None = f"{COURTLISTENER_BASE}/parties/"
+    params: dict = {
         "docket": docket_id,
         "fields": "name,contact_information,party_types",
     }
-
-    resp = requests.get(
-        f"{COURTLISTENER_BASE}/parties/",
-        headers=headers,
-        params=params,
-        timeout=30,
-    )
-    resp.raise_for_status()
-    return resp.json().get("results", [])
+    parties: list[dict] = []
+    page = 0
+    while url and page < MAX_PAGES:
+        resp = requests.get(url, headers=headers, params=params, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        parties.extend(data.get("results", []))
+        url = data.get("next")
+        params = {}
+        page += 1
+    return parties
