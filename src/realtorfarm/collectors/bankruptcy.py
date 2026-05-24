@@ -185,5 +185,6 @@ def _deduplicate(candidates: list[dict]) -> list[dict]:
             seen.add(key)
             deduped.append(c)
         elif not key:
-            deduped.append(c)  # no case_id → keep all (shouldn't happen in practice)
+            print(f"[bankruptcy] candidate with empty case_id kept without deduplication: {c.get('notes', '')}")
+            deduped.append(c)
     return deduped

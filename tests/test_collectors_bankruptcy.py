@@ -149,3 +149,30 @@ def test_collect_bankruptcy_sends_no_address_case_to_candidates(monkeypatch):
     assert len(candidates) == 1
     assert candidates[0]["rejection_reason"] == "missing_debtor_address"
     assert candidates[0]["case_id"] == "2:26-bk-00123"
+
+
+BLANK_ZIP_PARTIES = [
+    {
+        "name": "Alice Blank",
+        "party_types": [{"name": "Debtor"}],
+        "contact_information": [{
+            "address1": "100 Main St",
+            "city": "Burien",
+            "state": "WA",
+            "zip_code": "",   # present but empty
+        }],
+    }
+]
+
+
+def test_collect_bankruptcy_blank_zip_sends_to_missing_debtor_address(monkeypatch):
+    """Debtor has contact_information but blank zip_code → missing_debtor_address, not silently dropped."""
+    monkeypatch.setenv("BANKRUPTCY_ENABLED", "true")
+    with patch("realtorfarm.collectors.bankruptcy.search_dockets",
+               side_effect=[[BURIEN_DOCKET], [], []]), \
+         patch("realtorfarm.collectors.bankruptcy.get_parties", return_value=BLANK_ZIP_PARTIES), \
+         patch("realtorfarm.collectors.bankruptcy.time") as mock_time:
+        mock_time.sleep = lambda _: None
+        _, candidates = collect_bankruptcy(city="Burien", lookback_days=1)
+    assert len(candidates) == 1
+    assert candidates[0]["rejection_reason"] == "missing_debtor_address"
