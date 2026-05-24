@@ -13,7 +13,7 @@ _CHAPTERS = [7, 11, 13]
 _MIN_LOOKBACK = 7  # CourtListener indexing lag up to 48h; 7 days ensures full coverage
 _RATE_SLEEP = 0.35  # stay under 3 req/sec CourtListener free-tier limit
 
-_COURTLISTENER_BASE = "https://www.courtlistener.com"
+_COURTLISTENER_DOCKET_BASE = "https://www.courtlistener.com"  # human-readable docket URLs (not the API base)
 
 # City → zip code mapping (same cities as other collectors)
 _CITY_ZIPS: dict[str, list[str]] = {
@@ -104,7 +104,7 @@ def _process_docket(
     docket_number = docket.get("docket_number", "")
     case_name = docket.get("case_name", "")
     date_filed = docket.get("date_filed", date.today().isoformat())
-    source_url = f"{_COURTLISTENER_BASE}/docket/{docket_id}/"
+    source_url = f"{_COURTLISTENER_DOCKET_BASE}/docket/{docket_id}/"
     debtor_name = re.sub(r"(?i)^in\s+re\s+", "", case_name).strip()
 
     parties = get_parties(docket_id=docket_id)
@@ -127,7 +127,13 @@ def _process_docket(
             # Has an address but it's outside our target cities — skip
             return None
 
-    # No address available (or debtor party not found)
+    # Either no debtor party record exists in CourtListener, or the debtor has no address data.
+    # Distinguish the two cases in notes so human reviewers can triage efficiently.
+    if debtor is None:
+        address_note = "no debtor party found in CourtListener"
+    else:
+        address_note = "debtor party found but no address in CourtListener"
+
     return {
         "property_address": "",
         "parcel_id":        "",
@@ -136,7 +142,7 @@ def _process_docket(
         "rejection_reason": "missing_debtor_address",
         "source_url":       source_url,
         "recorded_date":    date_filed,
-        "notes":            f"Chapter {chapter} bankruptcy; debtor: {debtor_name}",
+        "notes":            f"Chapter {chapter} bankruptcy; debtor: {debtor_name}; {address_note}",
     }
 
 
