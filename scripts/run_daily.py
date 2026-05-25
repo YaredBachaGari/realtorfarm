@@ -9,7 +9,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from realtorfarm.blob import upload_file_to_vercel_blob
+from realtorfarm.blob import BlobUploadError, upload_file_to_vercel_blob
 from realtorfarm.reporting import build_source_report
 
 
@@ -86,12 +86,20 @@ def main() -> int:
         )
         results = {}
         for upload in uploads:
-            result = upload_file_to_vercel_blob(
-                output_path,
-                pathname=str(upload["pathname"]),
-                allow_overwrite=bool(upload["allow_overwrite"]),
-            )
-            results[str(upload["label"])] = result.get("pathname", upload["pathname"])
+            try:
+                result = upload_file_to_vercel_blob(
+                    output_path,
+                    pathname=str(upload["pathname"]),
+                    allow_overwrite=bool(upload["allow_overwrite"]),
+                )
+                results[str(upload["label"])] = result.get("pathname", upload["pathname"])
+            except BlobUploadError as exc:
+                if upload["label"] == "dated" and "already exists" in str(exc):
+                    # Dated snapshots are immutable — first upload of the day wins; re-runs skip silently.
+                    print(f"[blob] dated snapshot already exists for {upload['pathname']}, skipping")
+                    results["dated"] = str(upload["pathname"])
+                else:
+                    raise
         print(f"uploaded Vercel Blob dated={results['dated']} latest={results['latest']}")
     return 0
 
