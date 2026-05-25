@@ -25,12 +25,14 @@ def run_task(
     *,
     api_key: str | None = None,
     poll_interval: int = 5,
-    timeout: int = 300,
+    timeout: int = 90,
 ) -> str:
     """Submit a Browser Use Cloud task and block until finished, returning output text.
 
     Raises BrowserUseQuotaError on HTTP 402 so callers can fast-fail remaining
     tasks instead of retrying against an exhausted quota.
+    Default timeout is 90s — enough for real tasks, short enough to keep the
+    pipeline from blocking on stuck sessions.
     """
     key = api_key or os.environ.get("BROWSER_USE_API_KEY", "")
     if not key:

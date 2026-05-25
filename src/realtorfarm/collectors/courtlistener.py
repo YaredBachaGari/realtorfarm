@@ -14,7 +14,7 @@ import requests
 COURTLISTENER_BASE = "https://www.courtlistener.com/api/rest/v4"
 MAX_PAGES = 200  # safeguard: 200 × 100 = 20,000 dockets; covers any realistic lookback window
 _RATE_SLEEP = 0.35  # stay under 3 req/sec free-tier limit between per-docket detail fetches
-_RETRY_DELAYS = (5, 15, 45)  # seconds to wait on 429 before retrying (3 attempts total)
+_RETRY_DELAYS = (13, 13, 13)  # seconds to wait on 429 before retrying; 13s = 4.6/min, safely under limit
 
 
 def _get_with_retry(url: str, *, headers: dict, params: dict | None = None, timeout: int = 30) -> requests.Response:
