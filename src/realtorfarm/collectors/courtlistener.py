@@ -14,6 +14,27 @@ import requests
 COURTLISTENER_BASE = "https://www.courtlistener.com/api/rest/v4"
 MAX_PAGES = 200  # safeguard: 200 × 100 = 20,000 dockets; covers any realistic lookback window
 _RATE_SLEEP = 0.35  # stay under 3 req/sec free-tier limit between per-docket detail fetches
+_RETRY_DELAYS = (5, 15, 45)  # seconds to wait on 429 before retrying (3 attempts total)
+
+
+def _get_with_retry(url: str, *, headers: dict, params: dict | None = None, timeout: int = 30) -> requests.Response:
+    """GET with automatic retry on HTTP 429 (rate-limited).
+
+    Respects the Retry-After response header when present; otherwise uses
+    _RETRY_DELAYS for exponential-ish back-off.  Raises on the final attempt.
+    """
+    for attempt, wait in enumerate(_RETRY_DELAYS, start=1):
+        resp = requests.get(url, headers=headers, params=params or {}, timeout=timeout)
+        if resp.status_code != 429:
+            resp.raise_for_status()
+            return resp
+        retry_after = int(resp.headers.get("Retry-After", wait))
+        print(f"[courtlistener] 429 rate-limited on attempt {attempt}; sleeping {retry_after}s before retry")
+        time.sleep(retry_after)
+    # Final attempt — let raise_for_status propagate
+    resp = requests.get(url, headers=headers, params=params or {}, timeout=timeout)
+    resp.raise_for_status()
+    return resp
 
 
 def search_dockets(
@@ -49,8 +70,7 @@ def search_dockets(
     url: str | None = f"{COURTLISTENER_BASE}/bankruptcy-information/"
     page = 0
     while url and page < MAX_PAGES:
-        resp = requests.get(url, headers=headers, params=params, timeout=30)
-        resp.raise_for_status()
+        resp = _get_with_retry(url, headers=headers, params=params)
         data = resp.json()
         bk_items.extend(data.get("results", []))
         url = data.get("next")
@@ -70,8 +90,7 @@ def search_dockets(
         docket_id = int(docket_id_str)
         try:
             time.sleep(_RATE_SLEEP)
-            dr = requests.get(docket_url, headers=headers, timeout=30)
-            dr.raise_for_status()
+            dr = _get_with_retry(docket_url, headers=headers)
             d = dr.json()
             results.append({
                 "id": docket_id,
@@ -110,8 +129,7 @@ def get_parties(
     parties: list[dict] = []
     page = 0
     while url and page < MAX_PAGES:
-        resp = requests.get(url, headers=headers, params=params, timeout=30)
-        resp.raise_for_status()
+        resp = _get_with_retry(url, headers=headers, params=params)
         data = resp.json()
         parties.extend(data.get("results", []))
         url = data.get("next")

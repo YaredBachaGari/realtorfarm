@@ -16,6 +16,10 @@ BROWSER_USE_BASE = "https://api.browser-use.com/api/v3"
 _RUNNING_STATUSES = {"running", "pending", "queued"}
 
 
+class BrowserUseQuotaError(RuntimeError):
+    """Raised when the Browser Use account has no remaining daily quota (HTTP 402)."""
+
+
 def run_task(
     task: str,
     *,
@@ -23,7 +27,11 @@ def run_task(
     poll_interval: int = 5,
     timeout: int = 300,
 ) -> str:
-    """Submit a Browser Use Cloud task and block until finished, returning output text."""
+    """Submit a Browser Use Cloud task and block until finished, returning output text.
+
+    Raises BrowserUseQuotaError on HTTP 402 so callers can fast-fail remaining
+    tasks instead of retrying against an exhausted quota.
+    """
     key = api_key or os.environ.get("BROWSER_USE_API_KEY", "")
     if not key:
         raise ValueError("BROWSER_USE_API_KEY is required")
@@ -36,6 +44,11 @@ def run_task(
         json={"task": task},
         timeout=30,
     )
+    if resp.status_code == 402:
+        raise BrowserUseQuotaError(
+            "Browser Use daily quota exhausted (HTTP 402 Payment Required). "
+            "Add credits at https://cloud.browser-use.com/settings"
+        )
     resp.raise_for_status()
     session_id = resp.json()["id"]
 

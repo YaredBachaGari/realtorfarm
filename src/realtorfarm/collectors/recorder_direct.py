@@ -5,7 +5,7 @@ import os
 import re
 from datetime import date, datetime, timedelta
 
-from .browser_use import run_task
+from .browser_use import BrowserUseQuotaError, run_task
 
 LANDMARK_URL = "https://recordsearch.kingcounty.gov/LandmarkWeb/"
 
@@ -43,6 +43,9 @@ def collect_recorder_direct(
             )
             records.extend(r)
             candidates.extend(c)
+        except BrowserUseQuotaError as exc:
+            print(f"[recorder_direct] quota exhausted for {city} — skipping remaining tasks: {exc}")
+            break
         except (RuntimeError, TimeoutError, OSError, ValueError) as exc:
             print(f"[recorder_direct] {doc_type} task failed for {city}: {exc}")
 

@@ -1,5 +1,5 @@
 from unittest.mock import patch, MagicMock
-from realtorfarm.collectors.browser_use import run_task
+from realtorfarm.collectors.browser_use import BrowserUseQuotaError, run_task
 
 
 def _mock_response(data: dict) -> MagicMock:
@@ -63,6 +63,17 @@ def test_run_task_raises_on_missing_api_key(monkeypatch):
     monkeypatch.delenv("BROWSER_USE_API_KEY", raising=False)
     with pytest.raises(ValueError, match="BROWSER_USE_API_KEY"):
         run_task("task")
+
+
+def test_run_task_raises_quota_error_on_402():
+    import pytest
+    quota_resp = MagicMock()
+    quota_resp.status_code = 402
+    quota_resp.raise_for_status.return_value = None
+
+    with patch("realtorfarm.collectors.browser_use.requests.post", return_value=quota_resp):
+        with pytest.raises(BrowserUseQuotaError, match="quota exhausted"):
+            run_task("task", api_key="bu_test")
 
 
 def test_run_task_raises_timeout_when_deadline_exceeded():
