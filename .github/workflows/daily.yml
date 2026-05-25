@@ -18,6 +18,8 @@ jobs:
   collect-and-score:
     runs-on: ubuntu-latest
     environment: realtorfarm
+    permissions:
+      contents: write   # needed to commit merged.csv back to the repo
     strategy:
       matrix:
         city: [burien, kent, tukwila]
