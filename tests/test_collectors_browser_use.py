@@ -55,7 +55,7 @@ def test_run_task_reads_api_key_from_env(monkeypatch):
         run_task("task")
 
     headers = mock_post.call_args[1]["headers"]
-    assert "bu_from_env" in headers["Authorization"]
+    assert headers.get("X-Browser-Use-API-Key") == "bu_from_env"
 
 
 def test_run_task_raises_on_missing_api_key(monkeypatch):
