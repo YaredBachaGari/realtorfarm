@@ -17,6 +17,7 @@ on:
 jobs:
   collect-and-score:
     runs-on: ubuntu-latest
+    environment: realtorfarm
     strategy:
       matrix:
         city: [burien, kent, tukwila]
