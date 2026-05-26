@@ -74,6 +74,7 @@ def test_enrichment_skips_wrong_rejection_reason():
 
 
 def test_enrichment_respects_max_cap():
+    # CANDIDATE_MISSING_PARCEL has address + no parcel_id → exercises lookup_by_address path
     candidates = [CANDIDATE_MISSING_PARCEL] * 20
     with patch("realtorfarm.collectors.kc_gis.requests.get",
                return_value=_mock_gis("2322049010", "310 W MEEKER ST")) as mock_get:
@@ -97,5 +98,17 @@ def test_enrichment_skips_candidate_on_api_failure():
 
 def test_enrichment_skips_candidate_when_api_returns_no_match():
     with patch("realtorfarm.collectors.kc_gis.requests.get", return_value=_mock_gis_empty()):
+        records = enrich_candidates([CANDIDATE_MISSING_PARCEL], city="Kent", max_enrichments=10)
+    assert records == []
+
+
+def test_enrichment_skips_candidate_when_api_returns_empty_pin():
+    """If GIS result has no PIN, _enrich_one returns None and candidate is skipped."""
+    m = MagicMock()
+    m.raise_for_status.return_value = None
+    m.json.return_value = {
+        "features": [{"attributes": {"PIN": "", "ADDR_FULL": "310 W MEEKER ST", "CTYNAME": "KENT", "ZIP5": "98032"}}]
+    }
+    with patch("realtorfarm.collectors.kc_gis.requests.get", return_value=m):
         records = enrich_candidates([CANDIDATE_MISSING_PARCEL], city="Kent", max_enrichments=10)
     assert records == []

@@ -108,3 +108,10 @@ def test_lookup_by_address_raises_on_api_error_response():
     with patch("realtorfarm.collectors.kc_gis.requests.get", return_value=m):
         with pytest.raises(RuntimeError, match="KC GIS API error"):
             lookup_by_address("123 Main St")
+
+
+def test_format_address_keeps_directionals_uppercase():
+    attrs = {"ADDR_FULL": "220 4TH AVE NE", "CTYNAME": "KENT", "ZIP5": "98032"}
+    result = format_address(attrs)
+    assert "NE" in result  # directional must be uppercase, not "Ne"
+    assert "4Th" not in result  # title() bug would produce "4Th"

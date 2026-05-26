@@ -22,6 +22,39 @@ _STREET_TYPE_MAP = {
     "CIRCLE": "CIR", "HIGHWAY": "HWY", "TRAIL": "TRL", "TERRACE": "TER",
 }
 
+_DIRECTIONS = re.compile(
+    r'\b(Ne|Nw|Se|Sw|N|S|E|W)\b',
+    re.IGNORECASE,
+)
+
+
+def _fix_title_case(s: str) -> str:
+    """Apply title-case but keep directional abbreviations uppercase.
+
+    Handles ordinal suffixes like ``4TH`` → ``4th`` correctly (Python's
+    built-in ``.title()`` treats digits as word boundaries and would produce
+    ``4Th``).  Each space-separated token is processed independently: tokens
+    that start with digits have their letter suffix fully lowercased (ordinals),
+    while all other tokens are capitalised on the first letter only.
+    Directional abbreviations (N, S, E, W, NE, NW, SE, SW) are then
+    re-uppercased via regex.
+    """
+    titled = " ".join(_title_word(w) for w in s.strip().split())
+    return _DIRECTIONS.sub(lambda m: m.group().upper(), titled)
+
+
+def _title_word(w: str) -> str:
+    """Capitalise one space-separated token correctly."""
+    # Ordinal-style token: digits immediately followed by letters, e.g. "4TH"
+    m = re.match(r'^(\d+)([A-Za-z]+)$', w)
+    if m:
+        return m.group(1) + m.group(2).lower()
+    # General token: uppercase the first alphabetic character, lowercase rest
+    for i, c in enumerate(w):
+        if c.isalpha():
+            return w[:i] + c.upper() + w[i + 1:].lower()
+    return w.lower()
+
 
 def pin_to_formatted(pin: str) -> str:
     """Normalize any KC parcel PIN to dash-separated display format XXXXXX-XXXX."""
@@ -35,8 +68,8 @@ def pin_to_formatted(pin: str) -> str:
 
 def format_address(attrs: dict) -> str:
     """Build a canonical situs address string from KC GIS parcel attributes dict."""
-    street = attrs.get("ADDR_FULL", "").strip().title()
-    city = attrs.get("CTYNAME", "").strip().title()
+    street = _fix_title_case(attrs.get("ADDR_FULL", ""))
+    city = _fix_title_case(attrs.get("CTYNAME", ""))
     zip5 = attrs.get("ZIP5", "").strip()
     if not street:
         return ""

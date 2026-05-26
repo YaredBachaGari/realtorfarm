@@ -53,13 +53,19 @@ def _enrich_one(candidate: dict, *, city: str) -> dict[str, str] | None:
         if not attrs:
             return None
         filled_address = format_address(attrs)
-        filled_parcel = pin_to_formatted(attrs["PIN"])
+        pin_str = attrs.get("PIN") or ""
+        if not pin_str:
+            return None
+        filled_parcel = pin_to_formatted(pin_str)
     elif address and not parcel_id:
         attrs = lookup_by_address(address)
         if not attrs:
             return None
         filled_address = format_address(attrs) or address
-        filled_parcel = pin_to_formatted(attrs["PIN"])
+        pin_str = attrs.get("PIN") or ""
+        if not pin_str:
+            return None
+        filled_parcel = pin_to_formatted(pin_str)
     else:
         return None
 
