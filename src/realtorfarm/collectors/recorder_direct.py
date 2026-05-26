@@ -1,172 +1,189 @@
-"""Collect NOTS/NOD/Lien from King County Recorder Landmark via Browser Use Cloud."""
+"""Collect NOTS from King County Recorder Landmark Web using Playwright + 2captcha.
+
+Landmark enforces reCAPTCHA v2 on all searches; 2captcha solves it programmatically.
+Results come back as AJAX HTML; we parse the results table directly.
+
+Required env vars:
+  RECORDER_DIRECT_ENABLED=true   — must be explicitly enabled
+  TWOCAPTCHA_API_KEY=<key>       — 2captcha API key for reCAPTCHA solving
+"""
 from __future__ import annotations
 
 import os
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
-from .browser_use import BrowserUseQuotaError, run_task
+from playwright.sync_api import sync_playwright
+from twocaptcha import TwoCaptcha
 
-LANDMARK_URL = "https://recordsearch.kingcounty.gov/LandmarkWeb/"
+LANDMARK_SEARCH_URL = (
+    "https://recordsearch.kingcounty.gov/LandmarkWeb/search/index"
+    "?theme=.blue&section=searchCriteriaDocType&quickSearchSelection="
+)
+LANDMARK_DOCTYPE_ENDPOINT = (
+    "https://recordsearch.kingcounty.gov/LandmarkWeb/Search/DocumentTypeSearch"
+)
+LANDMARK_DETAIL_BASE = "https://recordsearch.kingcounty.gov/LandmarkWeb/Document/Index/"
 
-_DOC_TYPES = [
-    ("NOTICE OF TRUSTEE SALE", "NOTS"),
-    ("NOTICE OF DEFAULT", "NOD"),
-    ("LIEN", "Lien"),
+# Discovered from page inspection — stable for this site
+_RECAPTCHA_SITE_KEY = "6LePF5clAAAAAHUGpyT_rrTZl48-STa5Rn6_PMTv"
+
+_DOC_TYPES: list[tuple[str, str]] = [
+    ("172", "NOTS"),          # Notice of Trustee Sale
+    ("134,136,137", "Lien"),  # Lien types
 ]
 
-_PARCEL_RE = re.compile(r"\b([0-9]{6}-[0-9]{4}(?:-[0-9]{2})?)\b")
-_RECORDING_NUMBER_RE = re.compile(r"\b(\d{14})\b")
-_ADDRESS_RE = re.compile(
-    r"(\d{1,6}\s+[^\n.;]{2,80}?\b(?:Ave|St|Rd|Dr|Ln|Ct|Pl|Way|Blvd)\b[^\n]{0,60}WA\s+\d{5})",
-    re.I,
-)
+_CITY_VARIANTS: dict[str, set[str]] = {
+    "burien":  {"burien"},
+    "kent":    {"kent"},
+    "tukwila": {"tukwila"},
+}
 
 
 def collect_recorder_direct(
     *, city: str, lookback_days: int = 1
 ) -> tuple[list[dict[str, str]], list[dict]]:
-    """Return canonical records and candidates from King County Recorder Landmark."""
+    """Return candidates from KC Landmark Recorder for *city*."""
     if os.environ.get("RECORDER_DIRECT_ENABLED", "").lower() != "true":
         return [], []
 
+    twocaptcha_key = os.environ.get("TWOCAPTCHA_API_KEY", "")
+    if not twocaptcha_key:
+        raise ValueError("TWOCAPTCHA_API_KEY is required when RECORDER_DIRECT_ENABLED=true")
+
     end_date = date.today()
     start_date = end_date - timedelta(days=lookback_days)
+    city_variants = _CITY_VARIANTS.get(city.lower(), {city.lower()})
+
     records: list[dict[str, str]] = []
     candidates: list[dict] = []
 
-    for doc_type, signal in _DOC_TYPES:
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(headless=True)
         try:
-            r, c = _collect_doc_type(
-                doc_type=doc_type, signal=signal,
-                city=city, start_date=start_date, end_date=end_date,
-            )
-            records.extend(r)
-            candidates.extend(c)
-        except BrowserUseQuotaError as exc:
-            print(f"[recorder_direct] quota exhausted for {city} — skipping remaining tasks: {exc}")
-            break
-        except (RuntimeError, TimeoutError, OSError, ValueError) as exc:
-            print(f"[recorder_direct] {doc_type} task failed for {city}: {exc}")
+            for doctype_ids, signal in _DOC_TYPES:
+                try:
+                    r, c = _search_doc_type(
+                        browser=browser,
+                        twocaptcha_key=twocaptcha_key,
+                        doctype_ids=doctype_ids,
+                        signal=signal,
+                        city_variants=city_variants,
+                        start_date=start_date,
+                        end_date=end_date,
+                    )
+                    records.extend(r)
+                    candidates.extend(c)
+                except Exception as exc:
+                    print(f"[recorder_direct] {signal} search failed for {city}: {exc}")
+        finally:
+            browser.close()
 
     return records, candidates
 
 
-def _collect_doc_type(
-    *, doc_type: str, signal: str, city: str, start_date: date, end_date: date,
-) -> tuple[list[dict[str, str]], list[dict]]:
-    task = (
-        f'Go to {LANDMARK_URL} and search for documents of type "{doc_type}" '
-        f"recorded between {start_date.isoformat()} and {end_date.isoformat()}. "
-        f"For each result where the property address is in {city}, WA, return: "
-        f"recording date, recording number, grantor name, property address, document type. "
-        f"Return as plain text, one record per line."
-    )
-    result_text = run_task(task)
-    if not result_text.strip():
-        print(f"[recorder_direct] no {doc_type} results for {city}")
-        return [], []
-    return _parse_result(result_text, signal=signal, city=city, doc_type=doc_type)
+def _search_doc_type(
+    *,
+    browser,
+    twocaptcha_key: str,
+    doctype_ids: str,
+    signal: str,
+    city_variants: set[str],
+    start_date: date,
+    end_date: date,
+) -> tuple[list, list]:
+    """Run one document-type search via Playwright + 2captcha."""
+    page = browser.new_page()
+    try:
+        page.goto(LANDMARK_SEARCH_URL, timeout=60_000)
+        page.wait_for_load_state("networkidle", timeout=60_000)
 
-
-def _parse_result(
-    text: str, *, signal: str, city: str, doc_type: str,
-) -> tuple[list[dict[str, str]], list[dict]]:
-    """Parse the entire result text block as one record (not line-by-line).
-
-    Browser Use returns multi-line blocks per result. We extract all fields
-    from the full text block rather than scanning individual lines, so that
-    fields spread across multiple lines (address, parcel, recording number,
-    grantor) are all found together.
-    """
-    records: list[dict[str, str]] = []
-    candidates: list[dict] = []
-
-    # Split into record blocks separated by blank lines, then handle
-    # single-record responses (no blank-line separator) as one block.
-    blocks = re.split(r"\n\s*\n", text.strip())
-    if not blocks:
-        return [], []
-
-    for block in blocks:
-        block = block.strip()
-        if not block:
-            continue
-
-        parcel_id = _extract_parcel(block)
-        address = _extract_address(block, city=city)
-        recording_number = _extract_recording_number(block)
-        owner = _extract_owner(block)
-        recorded_date = _extract_date(block)
-
-        source_url = (
-            f"browser-use://landmark/{recording_number}" if recording_number else LANDMARK_URL
+        # Solve reCAPTCHA
+        solver = TwoCaptcha(twocaptcha_key)
+        result = solver.recaptcha(
+            sitekey=_RECAPTCHA_SITE_KEY,
+            url=LANDMARK_SEARCH_URL,
         )
+        token = result["code"]
 
-        if parcel_id and address:
-            records.append({
-                "owner": owner,
-                "property_address": address,
-                "parcel_id": parcel_id,
-                "signal": signal,
-                "source": "King County Recorder Landmark",
-                "source_url": source_url,
-                "recorded_date": recorded_date,
-                "case_id": recording_number,
-                "notes": f"Recorded document type: {doc_type}",
-            })
-        elif address or recording_number:
-            candidates.append({
-                "property_address": address,
-                "parcel_id": parcel_id,
-                "case_id": recording_number,
-                "signals": [signal],
-                "rejection_reason": (
-                    "missing_parcel_id" if address and not parcel_id
-                    else "missing_target_city_property_address"
-                ),
-                "source_url": source_url,
-                "recorded_date": recorded_date,
-            })
+        # Inject captcha token and submit via JavaScript
+        page.evaluate(f"""
+            document.querySelector('textarea[name="g-recaptcha-response"]').value = `{token}`;
+            document.querySelector('#documentTypeIds-DocumentType').value = '{doctype_ids}';
+            document.querySelector('#beginDate-DocumentType').value = '{start_date.strftime('%m/%d/%Y')}';
+            document.querySelector('#endDate-DocumentType').value = '{end_date.strftime('%m/%d/%Y')}';
+        """)
+        page.click("#submit-DocumentType")
+        page.wait_for_load_state("networkidle", timeout=60_000)
 
-    return records, candidates
+        # Parse results
+        rows = _extract_rows(page)
+        return _parse_rows(rows, signal=signal, city_variants=city_variants,
+                           start_date=start_date)
+    finally:
+        page.close()
 
 
-def _extract_parcel(text: str) -> str:
-    m = _PARCEL_RE.search(text)
-    return m.group(1) if m else ""
+def _extract_rows(page) -> list[dict]:
+    """Extract result rows from the Landmark results table."""
+    rows = []
+    for tr in page.query_selector_all("#resultsTable tbody tr"):
+        cells = tr.query_selector_all("td")
+        if len(cells) < 4:
+            continue
+        rows.append({
+            "recording_number": cells[0].inner_text().strip() if cells[0] else "",
+            "doc_type":         cells[1].inner_text().strip() if len(cells) > 1 else "",
+            "recorded_date":    cells[2].inner_text().strip() if len(cells) > 2 else "",
+            "grantor":          cells[3].inner_text().strip() if len(cells) > 3 else "",
+            "grantee":          cells[4].inner_text().strip() if len(cells) > 4 else "",
+        })
+    return rows
 
 
-def _extract_recording_number(text: str) -> str:
-    m = _RECORDING_NUMBER_RE.search(text)
-    return m.group(1) if m else ""
+def _parse_rows(
+    rows: list[dict],
+    *,
+    signal: str,
+    city_variants: set[str],
+    start_date: date,
+) -> tuple[list, list]:
+    """Convert Landmark result rows into candidates.
+
+    NOTE: Landmark results do NOT include address/city/zip. All results go to
+    candidates with missing_parcel_id so parcel_enrichment can look them up later.
+    City filtering is best-effort from the grantor name — we include all results
+    and rely on parcel_enrichment + human review to filter by city.
+    """
+    candidates = []
+    for row in rows:
+        rec_date = row.get("recorded_date", start_date.isoformat())
+        candidates.append({
+            "property_address": "",   # not in Landmark results grid
+            "parcel_id":        "",
+            "case_id":          row.get("recording_number", ""),
+            "signals":          [signal],
+            "rejection_reason": "missing_parcel_id",
+            "source_url":       LANDMARK_DETAIL_BASE + row.get("recording_number", ""),
+            "recorded_date":    _parse_date(rec_date),
+            "notes":            (
+                f"Grantor: {row.get('grantor', '')}; "
+                f"Grantee: {row.get('grantee', '')}; "
+                f"Type: {row.get('doc_type', '')}"
+            ),
+        })
+    return [], candidates
 
 
-def _extract_address(text: str, *, city: str) -> str:
-    city_re = re.compile(
-        rf"(\d{{1,6}}\s+[^\n.;]{{2,80}}?\b{re.escape(city)}\b[^\n]{{0,30}}WA\s+\d{{5}}(?:-\d{{4}})?)",
-        re.I,
-    )
-    m = city_re.search(text)
+def _parse_date(raw: str) -> str:
+    """Parse M/D/YYYY or YYYY-MM-DD date string to ISO YYYY-MM-DD."""
+    raw = raw.strip()
+    # Try M/D/YYYY format first
+    m = re.match(r"(\d{1,2})/(\d{1,2})/(\d{4})", raw)
     if m:
-        return re.sub(r"\s+", " ", m.group(1)).strip()
-    m = _ADDRESS_RE.search(text)
-    return re.sub(r"\s+", " ", m.group(1)).strip() if m else ""
-
-
-def _extract_owner(text: str) -> str:
-    m = re.search(r"(?:Grantor|Owner)\s*[:\-]?\s*([^\n,]{2,80})", text, re.I)
-    return m.group(1).strip().upper() if m else "UNKNOWN OWNER"
-
-
-def _extract_date(text: str) -> str:
-    m = re.search(r"\b(\d{4}-\d{2}-\d{2})\b", text)
-    if m:
-        return m.group(1)
-    m = re.search(r"\b(\d{1,2}/\d{1,2}/\d{4})\b", text)
-    if m:
-        try:
-            return datetime.strptime(m.group(1), "%m/%d/%Y").date().isoformat()
-        except ValueError:
-            pass
+        mo, d, yr = m.groups()
+        return f"{yr}-{int(mo):02d}-{int(d):02d}"
+    # Already ISO
+    if re.match(r"\d{4}-\d{2}-\d{2}", raw):
+        return raw[:10]
     return date.today().isoformat()

@@ -85,13 +85,35 @@ def test_collect_daily_creates_merged_csv_if_missing(tmp_path, monkeypatch):
 
 def test_collect_for_city_calls_recorder_direct_when_enabled(monkeypatch):
     monkeypatch.setenv("RECORDER_DIRECT_ENABLED", "true")
+    monkeypatch.setenv("TWOCAPTCHA_API_KEY", "test_key")
     monkeypatch.setenv("BROWSER_USE_MAX_ENRICHMENTS", "0")
-    with patch("realtorfarm.collectors.recorder_direct.run_task", return_value="") as mock_run, \
+
+    from unittest.mock import MagicMock
+
+    mock_solver = MagicMock()
+    mock_solver.recaptcha.return_value = {"code": "test_token"}
+
+    page = MagicMock()
+    page.goto.return_value = None
+    page.wait_for_load_state.return_value = None
+    page.evaluate.return_value = None
+    page.click.return_value = None
+    page.query_selector_all.return_value = []
+
+    browser = MagicMock()
+    browser.new_page.return_value = page
+
+    pw_instance = MagicMock()
+    pw_instance.chromium.launch.return_value = browser
+
+    with patch("realtorfarm.collectors.recorder_direct.TwoCaptcha", return_value=mock_solver) as mock_tc, \
+         patch("realtorfarm.collectors.recorder_direct.sync_playwright") as mock_pw, \
          patch("realtorfarm.collectors.legal_notices.scrape_url", return_value=""), \
          patch("realtorfarm.collectors.treasury.scrape_url", return_value=""):
+        mock_pw.return_value.__enter__.return_value = pw_instance
         from realtorfarm.collectors import collect_for_city
         records, candidates = collect_for_city(city="Kent", lookback_days=1)
-    assert mock_run.called
+    assert mock_tc.called
     assert isinstance(records, list)
 
 
