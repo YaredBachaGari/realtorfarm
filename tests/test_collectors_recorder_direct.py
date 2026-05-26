@@ -175,10 +175,9 @@ def test_parse_date_empty_string():
 
 
 def test_parse_date_timestamp_format():
-    # Landmark sometimes appends time — should fall back gracefully
+    # Landmark sometimes appends time — regex extracts date portion, ignores time suffix
     result = _parse_date("5/20/2026 3:42 PM")
-    # This may or may not parse depending on regex — test that it returns a valid ISO date
-    assert re.match(r"\d{4}-\d{2}-\d{2}", result)
+    assert result == "2026-05-20"
 
 
 def test_parse_date_garbage():
