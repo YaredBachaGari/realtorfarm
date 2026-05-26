@@ -125,7 +125,7 @@ Implemented extraction currently attempts every Tier 1 and Tier 2 signal instead
 
 The extractor requires a target-city property/situs address and parcel/APN before a row is emitted. It intentionally rejects notices where the target city appears only as a mailing/contact address while the labeled property address is outside the target city.
 
-Note: King County Recorder Landmark document search returns `Invalid Captcha` to direct scripted POSTs. Use Browser Use Cloud for CAPTCHA-blocked Landmark searches, then save the extracted Landmark detail text and feed it to `scrape-notices` or `hunt`. Verified Browser Use Cloud workflow on 2026-05-21 found recent Notice of Trustee Sale records, including Landmark recording number `20260511000326`; when Landmark output is enriched with a Burien property address from King County parcel/address sources, `scrape-notices` emits a Tier 1 `NOTS` lead.
+Note: King County Recorder Landmark enforces Google reCAPTCHA v2 on all searches. The pipeline's `recorder_direct` collector handles this automatically via Playwright (headless Chromium) + the 2captcha solving service. Requires `RECORDER_DIRECT_ENABLED=true` and a `TWOCAPTCHA_API_KEY` environment variable. Landmark results do not include the parcel address in the search grid — they are emitted as candidates and enriched via the King County GIS REST API (`parcel_enrichment`).
 
 ## Daily City Workflow
 
