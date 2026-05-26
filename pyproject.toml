@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [{name = "RealtorFarm"}]
-dependencies = ["requests>=2.31"]
+dependencies = ["requests>=2.31", "playwright>=1.40"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.4"]
