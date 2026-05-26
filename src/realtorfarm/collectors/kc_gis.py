@@ -26,6 +26,8 @@ _STREET_TYPE_MAP = {
 def pin_to_formatted(pin: str) -> str:
     """Normalize any KC parcel PIN to dash-separated display format XXXXXX-XXXX."""
     raw = pin.replace("-", "")
+    if len(raw) > 10:
+        raise ValueError(f"PIN too long after stripping dashes: {pin!r}")
     if len(raw) < 10:
         raw = raw.zfill(10)
     return f"{raw[:6]}-{raw[6:10]}"
@@ -48,6 +50,8 @@ def format_address(attrs: dict) -> str:
 def lookup_by_pin(pin: str, *, timeout: int = 15) -> dict | None:
     """Return parcel attribute dict for *pin* (with or without dash), or None."""
     pin_clean = pin.replace("-", "")
+    if not re.fullmatch(r"[0-9]{10}", pin_clean):
+        raise ValueError(f"Invalid KC PIN (must be 10 digits): {pin!r}")
     resp = requests.get(KCGIS_PARCEL_LAYER, params={
         "where": f"PIN = '{pin_clean}'",
         "outFields": "PIN,ADDR_FULL,CTYNAME,ZIP5",
@@ -55,8 +59,14 @@ def lookup_by_pin(pin: str, *, timeout: int = 15) -> dict | None:
         "f": "json",
     }, timeout=timeout)
     resp.raise_for_status()
-    features = resp.json().get("features", [])
-    return features[0]["attributes"] if features else None
+    data = resp.json()
+    if "error" in data:
+        raise RuntimeError(f"KC GIS API error: {data['error']}")
+    features = data.get("features", [])
+    if not features:
+        return None
+    attrs = features[0].get("attributes")
+    return attrs if attrs else None
 
 
 def lookup_by_address(address: str, *, timeout: int = 15) -> dict | None:
@@ -71,13 +81,22 @@ def lookup_by_address(address: str, *, timeout: int = 15) -> dict | None:
         "f": "json",
     }, timeout=timeout)
     resp.raise_for_status()
-    features = resp.json().get("features", [])
-    return features[0]["attributes"] if features else None
+    data = resp.json()
+    if "error" in data:
+        raise RuntimeError(f"KC GIS API error: {data['error']}")
+    features = data.get("features", [])
+    if not features:
+        return None
+    attrs = features[0].get("attributes")
+    return attrs if attrs else None
 
 
 def _normalize_street(address: str) -> str:
     """Extract and uppercase the street portion of *address* for an ArcGIS LIKE query."""
     street = address.split(",")[0].strip().upper()
     for long_form, abbrev in _STREET_TYPE_MAP.items():
-        street = re.sub(rf"\b{long_form}\b", abbrev, street)
-    return street.replace("'", "''")
+        street = re.sub(rf"\b{long_form}\b\s*$", abbrev, street)
+    street = street.replace("'", "''")
+    # allowlist: alphanumeric, space, hyphen, hash, slash, apostrophe (already escaped to '')
+    street = re.sub(r"[^A-Z0-9 '#/\-]", "", street)
+    return street

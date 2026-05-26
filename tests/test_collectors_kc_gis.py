@@ -70,3 +70,31 @@ def test_lookup_by_address_returns_first_match():
 def test_lookup_by_address_returns_none_on_empty():
     with patch("realtorfarm.collectors.kc_gis.requests.get", return_value=_mock_gis([])):
         assert lookup_by_address("999 Nowhere St, Kent, WA 98032") is None
+
+
+def test_lookup_by_pin_raises_on_invalid_pin():
+    import pytest
+    with pytest.raises(ValueError, match="Invalid KC PIN"):
+        lookup_by_pin("not-a-pin")
+
+
+def test_pin_to_formatted_raises_on_too_long():
+    import pytest
+    with pytest.raises(ValueError, match="too long"):
+        pin_to_formatted("12345678901")  # 11 digits
+
+
+def test_lookup_by_pin_raises_on_api_error_response():
+    import pytest
+    m = MagicMock()
+    m.raise_for_status.return_value = None
+    m.json.return_value = {"error": {"code": 400, "message": "Invalid query"}}
+    with patch("realtorfarm.collectors.kc_gis.requests.get", return_value=m):
+        with pytest.raises(RuntimeError, match="KC GIS API error"):
+            lookup_by_pin("232204-9055")
+
+
+def test_normalize_street_does_not_corrupt_mid_name_type_word():
+    # "BOULEVARD PARK DR" - BOULEVARD is part of the name, not the suffix
+    result = _normalize_street("310 Boulevard Park Dr, Kent, WA 98032")
+    assert "BOULEVARD PARK" in result  # BOULEVARD should NOT be replaced
