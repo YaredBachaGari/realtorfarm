@@ -107,12 +107,15 @@ def _search_doc_type(
         token = result["code"]
 
         # Inject captcha token and submit via JavaScript
-        page.evaluate(f"""
-            document.querySelector('textarea[name="g-recaptcha-response"]').value = `{token}`;
-            document.querySelector('#documentTypeIds-DocumentType').value = '{doctype_ids}';
-            document.querySelector('#beginDate-DocumentType').value = '{start_date.strftime('%m/%d/%Y')}';
-            document.querySelector('#endDate-DocumentType').value = '{end_date.strftime('%m/%d/%Y')}';
-        """)
+        page.evaluate(
+            """([token, doctypeIds, begin, end]) => {
+                document.querySelector('textarea[name="g-recaptcha-response"]').value = token;
+                document.querySelector('#documentTypeIds-DocumentType').value = doctypeIds;
+                document.querySelector('#beginDate-DocumentType').value = begin;
+                document.querySelector('#endDate-DocumentType').value = end;
+            }""",
+            [token, doctype_ids, start_date.strftime("%m/%d/%Y"), end_date.strftime("%m/%d/%Y")],
+        )
         page.click("#submit-DocumentType")
         page.wait_for_load_state("networkidle", timeout=60_000)
 
@@ -129,14 +132,14 @@ def _extract_rows(page) -> list[dict]:
     rows = []
     for tr in page.query_selector_all("#resultsTable tbody tr"):
         cells = tr.query_selector_all("td")
-        if len(cells) < 4:
+        if len(cells) < 5:  # need all 5 columns: recnum, doctype, date, grantor, grantee
             continue
         rows.append({
-            "recording_number": cells[0].inner_text().strip() if cells[0] else "",
-            "doc_type":         cells[1].inner_text().strip() if len(cells) > 1 else "",
-            "recorded_date":    cells[2].inner_text().strip() if len(cells) > 2 else "",
-            "grantor":          cells[3].inner_text().strip() if len(cells) > 3 else "",
-            "grantee":          cells[4].inner_text().strip() if len(cells) > 4 else "",
+            "recording_number": cells[0].inner_text().strip(),
+            "doc_type":         cells[1].inner_text().strip(),
+            "recorded_date":    cells[2].inner_text().strip(),
+            "grantor":          cells[3].inner_text().strip(),
+            "grantee":          cells[4].inner_text().strip(),
         })
     return rows
 
@@ -186,4 +189,7 @@ def _parse_date(raw: str) -> str:
     # Already ISO
     if re.match(r"\d{4}-\d{2}-\d{2}", raw):
         return raw[:10]
-    return date.today().isoformat()
+    fallback = date.today().isoformat()
+    if raw:
+        print(f"[recorder_direct] _parse_date: unrecognized date format {raw!r}, defaulting to {fallback}")
+    return fallback

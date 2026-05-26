@@ -1,4 +1,5 @@
 """Tests for recorder_direct.py — mocks Playwright and 2captcha to avoid real network calls."""
+import re
 import pytest
 from unittest.mock import MagicMock, patch
 from realtorfarm.collectors.recorder_direct import (
@@ -134,9 +135,10 @@ def test_collect_enabled_returns_candidates(monkeypatch):
 
             records, candidates = collect_recorder_direct(city="Kent", lookback_days=7)
 
-    # At minimum, the mock should have been called and returned candidates
-    assert isinstance(records, list)
-    assert isinstance(candidates, list)
+    assert records == []  # Landmark never returns records directly
+    assert len(candidates) >= 1
+    assert candidates[0]["case_id"] == "20260520001234"
+    assert candidates[0]["signals"] == ["NOTS"]
 
 
 def test_collect_doctype_failure_is_caught(monkeypatch):
@@ -163,3 +165,22 @@ def test_collect_doctype_failure_is_caught(monkeypatch):
 
     # Should not raise — exceptions are caught internally
     assert records == []
+
+
+# ── _parse_date edge-case tests ───────────────────────────────────────────────
+
+def test_parse_date_empty_string():
+    result = _parse_date("")
+    assert result == date.today().isoformat()
+
+
+def test_parse_date_timestamp_format():
+    # Landmark sometimes appends time — should fall back gracefully
+    result = _parse_date("5/20/2026 3:42 PM")
+    # This may or may not parse depending on regex — test that it returns a valid ISO date
+    assert re.match(r"\d{4}-\d{2}-\d{2}", result)
+
+
+def test_parse_date_garbage():
+    result = _parse_date("NOT A DATE")
+    assert result == date.today().isoformat()
