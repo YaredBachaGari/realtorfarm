@@ -97,4 +97,14 @@ def test_lookup_by_pin_raises_on_api_error_response():
 def test_normalize_street_does_not_corrupt_mid_name_type_word():
     # "BOULEVARD PARK DR" - BOULEVARD is part of the name, not the suffix
     result = _normalize_street("310 Boulevard Park Dr, Kent, WA 98032")
-    assert "BOULEVARD PARK" in result  # BOULEVARD should NOT be replaced
+    assert result == "310 BOULEVARD PARK DR"  # BOULEVARD should NOT be replaced, trailing DR must be present
+
+
+def test_lookup_by_address_raises_on_api_error_response():
+    import pytest
+    m = MagicMock()
+    m.raise_for_status.return_value = None
+    m.json.return_value = {"error": {"code": 400, "message": "Invalid query"}}
+    with patch("realtorfarm.collectors.kc_gis.requests.get", return_value=m):
+        with pytest.raises(RuntimeError, match="KC GIS API error"):
+            lookup_by_address("123 Main St")
