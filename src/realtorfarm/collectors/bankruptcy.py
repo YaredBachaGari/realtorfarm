@@ -6,6 +6,8 @@ import re
 import time
 from datetime import date, timedelta
 
+import requests
+
 from .courtlistener import get_parties, search_dockets
 
 _COURT = "wawb"  # Western District of Washington bankruptcy court
@@ -55,6 +57,14 @@ def collect_bankruptcy(
                 end_date=end_date.isoformat(),
             )
             candidates.extend(c)
+        except requests.HTTPError as exc:
+            print(f"[bankruptcy] Chapter {chapter} task failed for {city}: {exc}")
+            # CourtListener rate-limited — skip remaining chapters; they'll fail identically.
+            # The circuit breaker in courtlistener._get_with_retry will still block redundant
+            # network calls even if we didn't break here.
+            if exc.response is None or exc.response.status_code == 429:
+                print(f"[bankruptcy] CourtListener rate-limited — skipping remaining chapters for {city}")
+                break
         except (RuntimeError, TimeoutError, OSError, ValueError) as exc:
             print(f"[bankruptcy] Chapter {chapter} task failed for {city}: {exc}")
 

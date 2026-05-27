@@ -19,9 +19,8 @@ _DJC_TRUSTEE_TMPL = (
 _DJC_MAX_DAYS = 7
 
 # Static sources that don't need date filtering.
-_STATIC_SOURCES: list[str] = [
-    "https://www.publicnoticeads.com/wa/search/?SearchString=&county=King&category=0",
-]
+# publicnoticeads.com removed — it's a JS SPA; Firecrawl consistently returns 500.
+_STATIC_SOURCES: list[str] = []
 
 # Kept for backward-compatibility / introspection; DJC entries are date-dynamic.
 LEGAL_NOTICE_SOURCES = _STATIC_SOURCES

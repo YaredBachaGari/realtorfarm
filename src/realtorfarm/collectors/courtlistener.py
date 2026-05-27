@@ -17,6 +17,12 @@ _RATE_SLEEP = 0.35  # stay under 3 req/sec free-tier limit between per-docket de
 _RETRY_DELAYS = (13, 13, 13)  # seconds to wait on 429 before retrying; 13s = 4.6/min, safely under limit
 _MAX_RETRY_SLEEP = 60  # never block a CI job longer than this on a single Retry-After wait
 
+# Circuit breaker: when a 429 with Retry-After > cap is received, record the monotonic
+# timestamp at which the rate-limit window expires.  Subsequent calls within the same
+# process skip the network entirely and raise immediately, avoiding log spam for every
+# chapter/docket that would fail the same way.
+_rl_state: dict = {"until": 0.0}  # {"until": float} — monotonic time when limit resets
+
 
 def _get_with_retry(url: str, *, headers: dict, params: dict | None = None, timeout: int = 30) -> requests.Response:
     """GET with automatic retry on HTTP 429 (rate-limited).
@@ -26,7 +32,17 @@ def _get_with_retry(url: str, *, headers: dict, params: dict | None = None, time
 
     If the server's Retry-After exceeds _MAX_RETRY_SLEEP the call raises
     immediately rather than blocking the CI job for minutes/hours.
+
+    A module-level circuit breaker (_rl_state) prevents redundant API calls
+    while a known rate-limit window is still active.
     """
+    # Circuit-breaker check — don't hit the network if we know we're rate-limited
+    remaining = _rl_state["until"] - time.monotonic()
+    if remaining > 0:
+        raise requests.HTTPError(
+            f"CourtListener rate-limit circuit breaker active for another {remaining:.0f}s"
+        )
+
     for attempt, wait in enumerate(_RETRY_DELAYS, start=1):
         resp = requests.get(url, headers=headers, params=params or {}, timeout=timeout)
         if resp.status_code != 429:
@@ -34,6 +50,7 @@ def _get_with_retry(url: str, *, headers: dict, params: dict | None = None, time
             return resp
         retry_after = int(resp.headers.get("Retry-After", wait))
         if retry_after > _MAX_RETRY_SLEEP:
+            _rl_state["until"] = time.monotonic() + retry_after  # arm circuit breaker
             print(
                 f"[courtlistener] 429 Retry-After={retry_after}s exceeds cap "
                 f"({_MAX_RETRY_SLEEP}s) — giving up to avoid blocking CI"

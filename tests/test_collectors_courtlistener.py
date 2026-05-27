@@ -3,7 +3,15 @@ import pytest
 import requests
 from unittest.mock import patch, MagicMock
 
-from realtorfarm.collectors.courtlistener import _get_with_retry, _MAX_RETRY_SLEEP
+from realtorfarm.collectors.courtlistener import _get_with_retry, _MAX_RETRY_SLEEP, _rl_state
+
+
+@pytest.fixture(autouse=True)
+def reset_circuit_breaker():
+    """Reset the module-level circuit breaker state before and after every test."""
+    _rl_state["until"] = 0.0
+    yield
+    _rl_state["until"] = 0.0
 
 
 def _make_429(retry_after: int) -> MagicMock:
@@ -54,3 +62,43 @@ def test_get_with_retry_cap_boundary_exactly_equal():
         _get_with_retry("https://example.com", headers={})
 
     mock_sleep.assert_called_once()
+
+
+# ── Circuit-breaker tests ─────────────────────────────────────────────────────
+
+def test_circuit_breaker_armed_after_large_retry_after():
+    """A 429 with Retry-After > cap should arm the circuit breaker."""
+    import time
+    _rl_state["until"] = 0.0  # reset before test
+    with patch("realtorfarm.collectors.courtlistener.requests.get",
+               return_value=_make_429(_MAX_RETRY_SLEEP + 1)), \
+         patch("realtorfarm.collectors.courtlistener.time.sleep"):
+        with pytest.raises(requests.HTTPError):
+            _get_with_retry("https://example.com", headers={})
+
+    assert _rl_state["until"] > time.monotonic(), "circuit breaker must be set to a future time"
+
+
+def test_circuit_breaker_skips_network_when_active():
+    """When the circuit breaker is active, no network call is made."""
+    import time
+    _rl_state["until"] = time.monotonic() + 1800  # simulate active circuit breaker
+    try:
+        with patch("realtorfarm.collectors.courtlistener.requests.get") as mock_get:
+            with pytest.raises(requests.HTTPError, match="circuit breaker"):
+                _get_with_retry("https://example.com", headers={})
+
+        mock_get.assert_not_called()
+    finally:
+        _rl_state["until"] = 0.0  # always reset so other tests are unaffected
+
+
+def test_circuit_breaker_clears_after_window_expires():
+    """An expired circuit breaker does not prevent the next request."""
+    import time
+    _rl_state["until"] = time.monotonic() - 1  # expired 1 second ago
+    with patch("realtorfarm.collectors.courtlistener.requests.get",
+               return_value=_make_200()):
+        result = _get_with_retry("https://example.com", headers={})
+
+    assert result.status_code == 200
