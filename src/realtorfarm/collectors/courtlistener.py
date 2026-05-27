@@ -15,6 +15,7 @@ COURTLISTENER_BASE = "https://www.courtlistener.com/api/rest/v4"
 MAX_PAGES = 200  # safeguard: 200 × 100 = 20,000 dockets; covers any realistic lookback window
 _RATE_SLEEP = 0.35  # stay under 3 req/sec free-tier limit between per-docket detail fetches
 _RETRY_DELAYS = (13, 13, 13)  # seconds to wait on 429 before retrying; 13s = 4.6/min, safely under limit
+_MAX_RETRY_SLEEP = 60  # never block a CI job longer than this on a single Retry-After wait
 
 
 def _get_with_retry(url: str, *, headers: dict, params: dict | None = None, timeout: int = 30) -> requests.Response:
@@ -22,6 +23,9 @@ def _get_with_retry(url: str, *, headers: dict, params: dict | None = None, time
 
     Respects the Retry-After response header when present; otherwise uses
     _RETRY_DELAYS for exponential-ish back-off.  Raises on the final attempt.
+
+    If the server's Retry-After exceeds _MAX_RETRY_SLEEP the call raises
+    immediately rather than blocking the CI job for minutes/hours.
     """
     for attempt, wait in enumerate(_RETRY_DELAYS, start=1):
         resp = requests.get(url, headers=headers, params=params or {}, timeout=timeout)
@@ -29,6 +33,12 @@ def _get_with_retry(url: str, *, headers: dict, params: dict | None = None, time
             resp.raise_for_status()
             return resp
         retry_after = int(resp.headers.get("Retry-After", wait))
+        if retry_after > _MAX_RETRY_SLEEP:
+            print(
+                f"[courtlistener] 429 Retry-After={retry_after}s exceeds cap "
+                f"({_MAX_RETRY_SLEEP}s) — giving up to avoid blocking CI"
+            )
+            resp.raise_for_status()  # raises requests.HTTPError(429)
         print(f"[courtlistener] 429 rate-limited on attempt {attempt}; sleeping {retry_after}s before retry")
         time.sleep(retry_after)
     # Final attempt — let raise_for_status propagate

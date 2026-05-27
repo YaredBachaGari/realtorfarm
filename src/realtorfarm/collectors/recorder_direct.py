@@ -96,7 +96,9 @@ def _search_doc_type(
                 }""",
                 [doctype_ids, start_date.strftime("%m/%d/%Y"), end_date.strftime("%m/%d/%Y")],
             )
-            page.click("#submit-DocumentType")
+            # Use JS click to bypass Playwright's visibility check — the button can be
+            # obscured by a fading CAPTCHA overlay while still being functional.
+            page.evaluate("document.querySelector('#submit-DocumentType').click()")
             page.wait_for_load_state("networkidle", timeout=60_000)
             rows = _extract_rows(page)
             return _parse_rows(rows, signal=signal, city_variants=city_variants,
