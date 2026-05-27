@@ -1,4 +1,4 @@
-"""Tests for recorder_direct.py — mocks Playwright and 2captcha to avoid real network calls."""
+"""Tests for recorder_direct.py — mocks SeleniumBase sb_cdp and Playwright to avoid real network calls."""
 import re
 import pytest
 from unittest.mock import MagicMock, patch
@@ -77,11 +77,13 @@ def test_collect_disabled_returns_empty(monkeypatch):
     assert r == [] and c == []
 
 
-def test_collect_missing_api_key_raises(monkeypatch):
-    monkeypatch.setenv("RECORDER_DIRECT_ENABLED", "true")
-    monkeypatch.delenv("TWOCAPTCHA_API_KEY", raising=False)
-    with pytest.raises(ValueError, match="TWOCAPTCHA_API_KEY"):
-        collect_recorder_direct(city="Kent", lookback_days=1)
+def _make_sb_mock(endpoint="ws://localhost:9222"):
+    sb = MagicMock()
+    sb.get_endpoint_url.return_value = endpoint
+    sb.sleep.return_value = None
+    sb.solve_captcha.return_value = None
+    sb.quit.return_value = None
+    return sb
 
 
 def _make_tr_mock(row: dict) -> MagicMock:
@@ -106,34 +108,31 @@ def _make_tr_mock(row: dict) -> MagicMock:
 
 def test_collect_enabled_returns_candidates(monkeypatch):
     monkeypatch.setenv("RECORDER_DIRECT_ENABLED", "true")
-    monkeypatch.setenv("TWOCAPTCHA_API_KEY", "test_key")
 
-    # Mock 2captcha
-    with patch("realtorfarm.collectors.recorder_direct.TwoCaptcha") as mock_solver_cls:
-        mock_solver = MagicMock()
-        mock_solver.recaptcha.return_value = {"code": "test_token_123"}
-        mock_solver_cls.return_value = mock_solver
+    with patch("realtorfarm.collectors.recorder_direct.sb_cdp") as mock_sb_cdp, \
+         patch("realtorfarm.collectors.recorder_direct.sync_playwright") as mock_pw:
 
-        # Mock Playwright
-        tr_mock = _make_tr_mock(SAMPLE_ROW)
+        mock_sb_cdp.Chrome.return_value = _make_sb_mock()
 
+        # Build playwright mock chain
+        tr = _make_tr_mock(SAMPLE_ROW)
         page = MagicMock()
         page.goto.return_value = None
         page.wait_for_load_state.return_value = None
         page.evaluate.return_value = None
         page.click.return_value = None
-        page.query_selector_all.return_value = [tr_mock]
+        page.query_selector_all.return_value = [tr]
 
+        context = MagicMock()
+        context.pages = [page]
         browser = MagicMock()
-        browser.new_page.return_value = page
-
+        browser.contexts = [context]
         pw_instance = MagicMock()
-        pw_instance.chromium.launch.return_value = browser
+        pw_instance.chromium.connect_over_cdp.return_value = browser
+        mock_pw.return_value.__enter__.return_value = pw_instance
+        mock_pw.return_value.__exit__ = MagicMock(return_value=False)
 
-        with patch("realtorfarm.collectors.recorder_direct.sync_playwright") as mock_pw:
-            mock_pw.return_value.__enter__.return_value = pw_instance
-
-            records, candidates = collect_recorder_direct(city="Kent", lookback_days=7)
+        records, candidates = collect_recorder_direct(city="Kent", lookback_days=7)
 
     assert records == []  # Landmark never returns records directly
     assert len(candidates) >= 1
@@ -144,24 +143,10 @@ def test_collect_enabled_returns_candidates(monkeypatch):
 def test_collect_doctype_failure_is_caught(monkeypatch):
     """If a doc-type search throws, it's caught and the pipeline continues."""
     monkeypatch.setenv("RECORDER_DIRECT_ENABLED", "true")
-    monkeypatch.setenv("TWOCAPTCHA_API_KEY", "test_key")
 
-    with patch("realtorfarm.collectors.recorder_direct.TwoCaptcha") as mock_solver_cls:
-        mock_solver = MagicMock()
-        mock_solver.recaptcha.side_effect = Exception("2captcha timeout")
-        mock_solver_cls.return_value = mock_solver
-
-        with patch("realtorfarm.collectors.recorder_direct.sync_playwright") as mock_pw:
-            browser = MagicMock()
-            page = MagicMock()
-            page.goto.return_value = None
-            page.wait_for_load_state.return_value = None
-            browser.new_page.return_value = page
-            pw_instance = MagicMock()
-            pw_instance.chromium.launch.return_value = browser
-            mock_pw.return_value.__enter__.return_value = pw_instance
-
-            records, candidates = collect_recorder_direct(city="Kent", lookback_days=1)
+    with patch("realtorfarm.collectors.recorder_direct.sb_cdp") as mock_sb_cdp:
+        mock_sb_cdp.Chrome.side_effect = Exception("Chrome launch failed")
+        records, candidates = collect_recorder_direct(city="Kent", lookback_days=1)
 
     # Should not raise — exceptions are caught internally
     assert records == []

@@ -1,11 +1,10 @@
-"""Collect NOTS from King County Recorder Landmark Web using Playwright + 2captcha.
+"""Collect NOTS from King County Recorder Landmark Web using SeleniumBase CDP + Playwright.
 
-Landmark enforces reCAPTCHA v2 on all searches; 2captcha solves it programmatically.
-Results come back as AJAX HTML; we parse the results table directly.
+SeleniumBase launches an undetected Chrome instance; Playwright connects to it over CDP.
+sb.solve_captcha() handles reCAPTCHA v2 automatically — no API key needed.
 
 Required env vars:
   RECORDER_DIRECT_ENABLED=true   — must be explicitly enabled
-  TWOCAPTCHA_API_KEY=<key>       — 2captcha API key for reCAPTCHA solving
 """
 from __future__ import annotations
 
@@ -14,7 +13,7 @@ import re
 from datetime import date, timedelta
 
 from playwright.sync_api import sync_playwright
-from twocaptcha import TwoCaptcha
+from seleniumbase import sb_cdp
 
 LANDMARK_SEARCH_URL = (
     "https://recordsearch.kingcounty.gov/LandmarkWeb/search/index"
@@ -24,9 +23,6 @@ LANDMARK_DOCTYPE_ENDPOINT = (
     "https://recordsearch.kingcounty.gov/LandmarkWeb/Search/DocumentTypeSearch"
 )
 LANDMARK_DETAIL_BASE = "https://recordsearch.kingcounty.gov/LandmarkWeb/Document/Index/"
-
-# Discovered from page inspection — stable for this site
-_RECAPTCHA_SITE_KEY = "6LePF5clAAAAAHUGpyT_rrTZl48-STa5Rn6_PMTv"
 
 _DOC_TYPES: list[tuple[str, str]] = [
     ("172", "NOTS"),          # Notice of Trustee Sale
@@ -47,84 +43,65 @@ def collect_recorder_direct(
     if os.environ.get("RECORDER_DIRECT_ENABLED", "").lower() != "true":
         return [], []
 
-    twocaptcha_key = os.environ.get("TWOCAPTCHA_API_KEY", "")
-    if not twocaptcha_key:
-        raise ValueError("TWOCAPTCHA_API_KEY is required when RECORDER_DIRECT_ENABLED=true")
-
     end_date = date.today()
     start_date = end_date - timedelta(days=lookback_days)
     city_variants = _CITY_VARIANTS.get(city.lower(), {city.lower()})
-
     records: list[dict[str, str]] = []
     candidates: list[dict] = []
 
-    with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=True)
+    for doctype_ids, signal in _DOC_TYPES:
         try:
-            for doctype_ids, signal in _DOC_TYPES:
-                try:
-                    r, c = _search_doc_type(
-                        browser=browser,
-                        twocaptcha_key=twocaptcha_key,
-                        doctype_ids=doctype_ids,
-                        signal=signal,
-                        city_variants=city_variants,
-                        start_date=start_date,
-                        end_date=end_date,
-                    )
-                    records.extend(r)
-                    candidates.extend(c)
-                except Exception as exc:
-                    print(f"[recorder_direct] {signal} search failed for {city}: {exc}")
-        finally:
-            browser.close()
+            r, c = _search_doc_type(
+                doctype_ids=doctype_ids,
+                signal=signal,
+                city_variants=city_variants,
+                start_date=start_date,
+                end_date=end_date,
+            )
+            records.extend(r)
+            candidates.extend(c)
+        except Exception as exc:
+            print(f"[recorder_direct] {signal} search failed for {city}: {exc}")
 
     return records, candidates
 
 
 def _search_doc_type(
     *,
-    browser,
-    twocaptcha_key: str,
     doctype_ids: str,
     signal: str,
     city_variants: set[str],
     start_date: date,
     end_date: date,
 ) -> tuple[list, list]:
-    """Run one document-type search via Playwright + 2captcha."""
-    page = browser.new_page()
+    """Run one document-type search via SeleniumBase CDP + Playwright."""
+    sb = sb_cdp.Chrome(locale="en")
     try:
-        page.goto(LANDMARK_SEARCH_URL, timeout=60_000)
-        page.wait_for_load_state("networkidle", timeout=60_000)
-
-        # Solve reCAPTCHA
-        solver = TwoCaptcha(twocaptcha_key)
-        result = solver.recaptcha(
-            sitekey=_RECAPTCHA_SITE_KEY,
-            url=LANDMARK_SEARCH_URL,
-        )
-        token = result["code"]
-
-        # Inject captcha token and submit via JavaScript
-        page.evaluate(
-            """([token, doctypeIds, begin, end]) => {
-                document.querySelector('textarea[name="g-recaptcha-response"]').value = token;
-                document.querySelector('#documentTypeIds-DocumentType').value = doctypeIds;
-                document.querySelector('#beginDate-DocumentType').value = begin;
-                document.querySelector('#endDate-DocumentType').value = end;
-            }""",
-            [token, doctype_ids, start_date.strftime("%m/%d/%Y"), end_date.strftime("%m/%d/%Y")],
-        )
-        page.click("#submit-DocumentType")
-        page.wait_for_load_state("networkidle", timeout=60_000)
-
-        # Parse results
-        rows = _extract_rows(page)
-        return _parse_rows(rows, signal=signal, city_variants=city_variants,
-                           start_date=start_date)
+        endpoint_url = sb.get_endpoint_url()
+        with sync_playwright() as p:
+            browser = p.chromium.connect_over_cdp(endpoint_url)
+            context = browser.contexts[0]
+            page = context.pages[0]
+            page.goto(LANDMARK_SEARCH_URL, timeout=60_000)
+            page.wait_for_load_state("networkidle", timeout=60_000)
+            sb.sleep(3)
+            sb.solve_captcha()
+            sb.sleep(3)
+            page.evaluate(
+                """([doctypeIds, begin, end]) => {
+                    document.querySelector('#documentTypeIds-DocumentType').value = doctypeIds;
+                    document.querySelector('#beginDate-DocumentType').value = begin;
+                    document.querySelector('#endDate-DocumentType').value = end;
+                }""",
+                [doctype_ids, start_date.strftime("%m/%d/%Y"), end_date.strftime("%m/%d/%Y")],
+            )
+            page.click("#submit-DocumentType")
+            page.wait_for_load_state("networkidle", timeout=60_000)
+            rows = _extract_rows(page)
+            return _parse_rows(rows, signal=signal, city_variants=city_variants,
+                               start_date=start_date)
     finally:
-        page.close()
+        sb.quit()
 
 
 def _extract_rows(page) -> list[dict]:

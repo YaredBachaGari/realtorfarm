@@ -44,6 +44,12 @@ jobs:
       - name: Install Playwright browsers
         run: playwright install chromium --with-deps
 
+      - name: Setup virtual display (for SeleniumBase undetected Chrome)
+        run: |
+          sudo apt-get install -y xvfb
+          Xvfb :99 -screen 0 1920x1080x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
+
       - name: Collect records
         if: ${{ github.event_name == 'schedule' || github.event.inputs.city == '' || github.event.inputs.city == matrix.city }}
         env:
@@ -51,7 +57,6 @@ jobs:
           BROWSER_USE_API_KEY: ${{ secrets.BROWSER_USE_API_KEY }}
           BROWSER_USE_MAX_ENRICHMENTS: ${{ vars.BROWSER_USE_MAX_ENRICHMENTS || '10' }}
           RECORDER_DIRECT_ENABLED: ${{ vars.RECORDER_DIRECT_ENABLED || 'false' }}
-          TWOCAPTCHA_API_KEY: ${{ secrets.TWOCAPTCHA_API_KEY }}
           COURTS_ENABLED: ${{ vars.COURTS_ENABLED || 'false' }}
           REO_ENABLED: ${{ vars.REO_ENABLED || 'false' }}
           REO_BROWSER_USE_MAX_TASKS: ${{ vars.REO_BROWSER_USE_MAX_TASKS || '6' }}
