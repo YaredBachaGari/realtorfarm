@@ -1,4 +1,4 @@
-"""Collect Tax Delinquent 3+ Years signal from King County Treasury page via Firecrawl."""
+"""Collect Tax Delinquent 3+ Years signal from King County Treasury page via direct HTTP fetch."""
 from __future__ import annotations
 
 import re
@@ -19,7 +19,7 @@ def collect_treasury(*, city: str) -> list[dict[str, str]]:
     try:
         text = scrape_url(TREASURY_URL)
     except Exception as exc:
-        print(f"[treasury] firecrawl failed: {exc}")
+        print(f"[treasury] fetch failed: {exc}")
         return []
 
     return _parse_treasury_text(text, city=city)

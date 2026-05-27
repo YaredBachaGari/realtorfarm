@@ -1,5 +1,4 @@
 from unittest.mock import patch
-from datetime import date
 from realtorfarm.collectors.legal_notices import collect_legal_notices, LEGAL_NOTICE_SOURCES
 
 
@@ -34,26 +33,21 @@ Recorded on May 20, 2026.
 """
 
 
-def test_collect_legal_notices_returns_records_for_kent(monkeypatch):
-    monkeypatch.setenv("FIRECRAWL_API_KEY", "fc-test")
-
+def test_collect_legal_notices_returns_records_for_kent():
     with patch("realtorfarm.collectors.legal_notices.scrape_url", return_value=KENT_NOTS_MARKDOWN):
         records, candidates = collect_legal_notices(city="Kent", lookback_days=30)
 
     assert any(r["signal"] == "NOTS" and "Kent" in r["property_address"] for r in records)
 
 
-def test_collect_legal_notices_filters_to_target_city(monkeypatch):
-    monkeypatch.setenv("FIRECRAWL_API_KEY", "fc-test")
-
+def test_collect_legal_notices_filters_to_target_city():
     with patch("realtorfarm.collectors.legal_notices.scrape_url", return_value=BURIEN_NOTS_MARKDOWN):
         records, _ = collect_legal_notices(city="Kent", lookback_days=30)
 
     assert records == [], "Burien notices must not appear in Kent results"
 
 
-def test_collect_legal_notices_returns_candidates_for_enrichment(monkeypatch):
-    monkeypatch.setenv("FIRECRAWL_API_KEY", "fc-test")
+def test_collect_legal_notices_returns_candidates_for_enrichment():
     # Notice has signal + city mention but no parcel ID
     no_parcel_markdown = """
     Notice of Trustee's Sale TS No.: KENT-2026-0100

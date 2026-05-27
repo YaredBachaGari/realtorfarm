@@ -35,7 +35,7 @@ def test_collect_reo_returns_empty_when_disabled():
     assert candidates == []
 
 
-def test_collect_hud_uses_firecrawl_per_zip(monkeypatch):
+def test_collect_hud_fetches_per_zip(monkeypatch):
     """One scrape_url call per zip code for the target city; Browser Use not called."""
     monkeypatch.setenv("REO_ENABLED", "true")
     monkeypatch.setenv("REO_BROWSER_USE_MAX_TASKS", "0")  # disable Browser Use
