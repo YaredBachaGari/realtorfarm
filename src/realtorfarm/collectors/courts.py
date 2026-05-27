@@ -5,7 +5,7 @@ import os
 import re
 from datetime import date, datetime, timedelta
 
-from .browser_use import run_task
+from .browser_use import BrowserUseQuotaError, run_task
 
 COURTS_URL = (
     "https://www.courts.wa.gov/index.cfm?fa=home.contentDisplay&location=nameAndCaseSearch"
@@ -46,6 +46,9 @@ def collect_courts(
             )
             records.extend(r)
             candidates.extend(c)
+        except BrowserUseQuotaError as exc:
+            print(f"[courts] quota exhausted for {city} — skipping remaining tasks: {exc}")
+            break
         except (RuntimeError, TimeoutError, OSError, ValueError) as exc:
             print(f"[courts] {case_type} task failed for {city}: {exc}")
 

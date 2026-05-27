@@ -18,6 +18,8 @@ jobs:
   collect-and-score:
     runs-on: ubuntu-latest
     environment: realtorfarm
+    permissions:
+      contents: write   # needed to commit merged.csv back to the repo
     strategy:
       matrix:
         city: [burien, kent, tukwila]
@@ -38,6 +40,9 @@ jobs:
 
       - name: Install
         run: pip install -e ".[dev]"
+
+      - name: Install Playwright browsers
+        run: playwright install chromium --with-deps
 
       - name: Collect records
         if: ${{ github.event_name == 'schedule' || github.event.inputs.city == '' || github.event.inputs.city == matrix.city }}

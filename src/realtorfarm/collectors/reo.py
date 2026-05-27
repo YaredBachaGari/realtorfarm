@@ -5,7 +5,7 @@ import os
 import re
 from datetime import date
 
-from .browser_use import run_task
+from .browser_use import BrowserUseQuotaError, run_task
 from .firecrawl import scrape_url
 
 # City → zip code mapping for King County target cities
@@ -61,6 +61,9 @@ def collect_reo(
             r, c = fn(city=city)
             records.extend(r)
             candidates.extend(c)
+        except BrowserUseQuotaError as exc:
+            print(f"[reo] quota exhausted for {city} — skipping remaining tasks: {exc}")
+            break
         except (RuntimeError, TimeoutError, OSError, ValueError) as exc:
             print(f"[reo] {fn.__name__} task failed for {city}: {exc}")
 

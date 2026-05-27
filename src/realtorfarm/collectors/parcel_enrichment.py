@@ -1,18 +1,13 @@
-"""Use Browser Use Cloud to fill missing parcel_id or property_address for rejected candidates."""
+"""Enrich candidates by looking up missing parcel_id or address via King County GIS API.
+
+Replaces the previous Browser Use Cloud implementation — the KC GIS REST API is
+free, requires no authentication, and has no daily quota.
+"""
 from __future__ import annotations
 
-import re
 from datetime import date
 
-from .browser_use import run_task
-
-PARCEL_VIEWER_URL = "https://parcelviewer.kingcounty.gov"
-
-_PARCEL_RE = re.compile(r"\b([0-9]{6}-[0-9]{4}(?:-[0-9]{2})?)\b")
-_ADDRESS_RE = re.compile(
-    r"(\d{1,6}\s+[^\n.;]{2,80}?\b(?:Ave|St|Rd|Dr|Ln|Ct|Pl|Way|Blvd)\b[^\n]{0,60}WA\s+\d{5})",
-    re.I,
-)
+from .kc_gis import format_address, lookup_by_address, lookup_by_pin, pin_to_formatted
 
 _ENRICHABLE = {"missing_parcel_id", "missing_target_city_property_address"}
 
@@ -23,7 +18,7 @@ def enrich_candidates(
     city: str,
     max_enrichments: int = 10,
 ) -> list[dict[str, str]]:
-    """Return canonical records built from Browser Use parcel enrichment of rejected candidates."""
+    """Return canonical records built from KC GIS parcel enrichment of rejected candidates."""
     if max_enrichments == 0:
         return []
 
@@ -35,14 +30,13 @@ def enrich_candidates(
             break
         if candidate.get("rejection_reason") not in _ENRICHABLE:
             continue
-
         try:
             enriched = _enrich_one(candidate, city=city)
         except Exception as exc:
-            print(f"[parcel_enrichment] Browser Use failed for {candidate.get('case_id', '?')}: {exc}")
+            print(f"[parcel_enrichment] KC GIS lookup failed for "
+                  f"{candidate.get('case_id', '?')}: {exc}")
             count += 1
             continue
-
         if enriched:
             records.append(enriched)
         count += 1
@@ -50,78 +44,47 @@ def enrich_candidates(
     return records
 
 
-_PARCEL_PATTERN = re.compile(r"^[0-9]{6}-[0-9]{4}(?:-[0-9]{2})?$")
-_ADDRESS_MAX_LEN = 120
-
-
 def _enrich_one(candidate: dict, *, city: str) -> dict[str, str] | None:
     parcel_id = candidate.get("parcel_id", "")
     address = candidate.get("property_address", "")
 
-    # Validate inputs before injecting into the Browser Use task prompt
-    if parcel_id and not _PARCEL_PATTERN.match(parcel_id):
-        print(f"[parcel_enrichment] rejected malformed parcel_id: {parcel_id!r}")
-        return None
-    address = address[:_ADDRESS_MAX_LEN]  # cap length; trim any injection payload
-
     if parcel_id and not address:
-        task = (
-            f"Go to {PARCEL_VIEWER_URL} and search for parcel number {parcel_id}. "
-            f"Return the situs address, parcel account number, and owner name as plain text."
-        )
+        attrs = lookup_by_pin(parcel_id)
+        if not attrs:
+            return None
+        filled_address = format_address(attrs)
+        pin_str = attrs.get("PIN") or ""
+        if not pin_str:
+            return None
+        filled_parcel = pin_to_formatted(pin_str)
     elif address and not parcel_id:
-        task = (
-            f"Go to {PARCEL_VIEWER_URL} and search for this address: {address}. "
-            f"Return the parcel account number, situs address, and owner name as plain text."
-        )
+        attrs = lookup_by_address(address)
+        if not attrs:
+            return None
+        filled_address = format_address(attrs) or address
+        pin_str = attrs.get("PIN") or ""
+        if not pin_str:
+            return None
+        filled_parcel = pin_to_formatted(pin_str)
     else:
         return None
-
-    result_text = run_task(task)
-    if not result_text:
-        return None
-
-    filled_parcel = parcel_id or _extract_parcel(result_text)
-    filled_address = address or _extract_address(result_text, city=city)
 
     if not filled_parcel or not filled_address:
         return None
 
     signals = candidate.get("signals", [])
-    if not signals:
-        print(f"[parcel_enrichment] candidate {candidate.get('case_id', '?')} has no signals after enrichment — skipping")
-        return None
-
     return {
-        "owner": _extract_owner(result_text),
+        "owner":            "UNKNOWN OWNER",
         "property_address": filled_address,
-        "parcel_id": filled_parcel,
-        "signal": signals[0],
-        "source": "public legal notice + parcel viewer enrichment",
-        "source_url": candidate.get("source_url", ""),
-        "recorded_date": candidate.get("recorded_date", date.today().isoformat()),
-        "case_id": candidate.get("case_id", ""),
-        "notes": "Address or parcel enriched via King County Parcel Viewer (Browser Use Cloud)",
+        "parcel_id":        filled_parcel,
+        "signal":           signals[0] if signals else "",
+        "source":           candidate.get("source_url", ""),
+        "source_url":       candidate.get("source_url", ""),
+        "recorded_date":    candidate.get("recorded_date", date.today().isoformat()),
+        "case_id":          candidate.get("case_id", ""),
+        "notes":            candidate.get("notes", ""),
+        "listed_status":    "",
+        "listing_date":     "",
+        "listing_url":      "",
+        "listing_source":   "",
     }
-
-
-def _extract_parcel(text: str) -> str:
-    m = _PARCEL_RE.search(text)
-    return m.group(1) if m else ""
-
-
-def _extract_address(text: str, *, city: str) -> str:
-    city_pattern = re.compile(
-        rf"(\d{{1,6}}\s+[^\n.;]{{2,80}}?\b{re.escape(city)}\b[^\n]{{0,30}}WA\s+\d{{5}}(?:-\d{{4}})?)",
-        re.I,
-    )
-    m = city_pattern.search(text)
-    if m:
-        return re.sub(r"\s+", " ", m.group(1)).strip()
-    m = _ADDRESS_RE.search(text)
-    return re.sub(r"\s+", " ", m.group(1)).strip() if m else ""
-
-
-def _extract_owner(text: str) -> str:
-    m = re.search(r"(?:Owner|Taxpayer)\s*[:\-]?\s*([^\n]+)", text, re.I)
-    return m.group(1).strip().upper() if m else "UNKNOWN OWNER"

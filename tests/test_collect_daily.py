@@ -86,12 +86,40 @@ def test_collect_daily_creates_merged_csv_if_missing(tmp_path, monkeypatch):
 def test_collect_for_city_calls_recorder_direct_when_enabled(monkeypatch):
     monkeypatch.setenv("RECORDER_DIRECT_ENABLED", "true")
     monkeypatch.setenv("BROWSER_USE_MAX_ENRICHMENTS", "0")
-    with patch("realtorfarm.collectors.recorder_direct.run_task", return_value="") as mock_run, \
+
+    from unittest.mock import MagicMock
+
+    mock_sb = MagicMock()
+    mock_sb.get_endpoint_url.return_value = "ws://localhost:9222"
+    mock_sb.sleep.return_value = None
+    mock_sb.solve_captcha.return_value = None
+    mock_sb.quit.return_value = None
+
+    page = MagicMock()
+    page.goto.return_value = None
+    page.wait_for_load_state.return_value = None
+    page.evaluate.return_value = None
+    page.click.return_value = None
+    page.query_selector_all.return_value = []
+
+    context = MagicMock()
+    context.pages = [page]
+    browser = MagicMock()
+    browser.contexts = [context]
+
+    pw_instance = MagicMock()
+    pw_instance.chromium.connect_over_cdp.return_value = browser
+
+    with patch("realtorfarm.collectors.recorder_direct.sb_cdp") as mock_sb_cdp, \
+         patch("realtorfarm.collectors.recorder_direct.sync_playwright") as mock_pw, \
          patch("realtorfarm.collectors.legal_notices.scrape_url", return_value=""), \
          patch("realtorfarm.collectors.treasury.scrape_url", return_value=""):
+        mock_sb_cdp.Chrome.return_value = mock_sb
+        mock_pw.return_value.__enter__.return_value = pw_instance
+        mock_pw.return_value.__exit__ = MagicMock(return_value=False)
         from realtorfarm.collectors import collect_for_city
         records, candidates = collect_for_city(city="Kent", lookback_days=1)
-    assert mock_run.called
+    assert mock_sb_cdp.Chrome.called
     assert isinstance(records, list)
 
 

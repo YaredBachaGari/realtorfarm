@@ -102,7 +102,12 @@ def upload_file_to_vercel_blob(
     try:
         with urllib.request.urlopen(request, timeout=60) as response:
             raw = response.read().decode("utf-8", errors="ignore")
-    except Exception as exc:  # pragma: no cover - exact urllib exception varies by Python version
+    except urllib.error.HTTPError as exc:  # pragma: no cover
+        error_body = exc.read().decode("utf-8", errors="ignore") if exc.fp else ""
+        raise BlobUploadError(
+            f"Vercel Blob upload failed for {pathname}: HTTP {exc.code} {exc.reason} — {error_body}"
+        ) from exc
+    except Exception as exc:  # pragma: no cover
         raise BlobUploadError(f"Vercel Blob upload failed for {pathname}: {exc}") from exc
 
     try:

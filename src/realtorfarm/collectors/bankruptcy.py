@@ -12,6 +12,7 @@ _COURT = "wawb"  # Western District of Washington bankruptcy court
 _CHAPTERS = [7, 11, 13]
 _MIN_LOOKBACK = 7  # CourtListener indexing lag up to 48h; 7 days ensures full coverage
 _RATE_SLEEP = 0.35  # stay under 3 req/sec CourtListener free-tier limit
+_CHAPTER_SLEEP = 13  # seconds between chapter queries — keeps us under 5 req/min free-tier limit
 
 _COURTLISTENER_DOCKET_BASE = "https://www.courtlistener.com"  # human-readable docket URLs (not the API base)
 
@@ -42,7 +43,9 @@ def collect_bankruptcy(
     records: list[dict[str, str]] = []
     candidates: list[dict] = []
 
-    for chapter in _CHAPTERS:
+    for i, chapter in enumerate(_CHAPTERS):
+        if i > 0:
+            time.sleep(_CHAPTER_SLEEP)  # pace requests to stay under 5/min CourtListener limit
         try:
             _, c = _collect_chapter(
                 chapter=chapter,
