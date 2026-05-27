@@ -9,8 +9,11 @@ from realtorfarm.extractors.public_notices import scrape_notice_sources_with_dia
 from .firecrawl import scrape_url
 
 LEGAL_NOTICE_SOURCES = [
-    "https://www.southcountyjournal.com/classifieds/public-notices/",
-    "https://www.djc.com/legal_notices/",
+    # DJC Trustee Sales — replaces defunct South County Journal URL (vmga.org redirect, also 404)
+    "https://www.djc.com/notices/index.php?action=show&query=&cat=TR",
+    # DJC general public notices — replaces old /legal_notices/ 404
+    "https://www.djc.com/notices/",
+    # WA Public Notice Ads — King County
     "https://www.publicnoticeads.com/wa/search/?SearchString=&county=King&category=0",
 ]
 
