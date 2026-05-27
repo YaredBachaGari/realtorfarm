@@ -75,7 +75,7 @@ def _search_doc_type(
     end_date: date,
 ) -> tuple[list, list]:
     """Run one document-type search via SeleniumBase CDP + Playwright."""
-    sb = sb_cdp.Chrome(locale="en")
+    sb = sb_cdp.Chrome()
     try:
         endpoint_url = sb.get_endpoint_url()
         with sync_playwright() as p:
@@ -84,9 +84,10 @@ def _search_doc_type(
             page = context.pages[0]
             page.goto(LANDMARK_SEARCH_URL, timeout=60_000)
             page.wait_for_load_state("networkidle", timeout=60_000)
-            sb.sleep(3)
+            sb.sleep(2)
             sb.solve_captcha()
-            sb.sleep(3)
+            sb.wait_for_element_absent("input[disabled]")  # wait until form inputs are enabled
+            sb.sleep(2)
             page.evaluate(
                 """([doctypeIds, begin, end]) => {
                     document.querySelector('#documentTypeIds-DocumentType').value = doctypeIds;

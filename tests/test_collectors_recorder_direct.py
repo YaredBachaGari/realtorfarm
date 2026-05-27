@@ -82,6 +82,7 @@ def _make_sb_mock(endpoint="ws://localhost:9222"):
     sb.get_endpoint_url.return_value = endpoint
     sb.sleep.return_value = None
     sb.solve_captcha.return_value = None
+    sb.wait_for_element_absent.return_value = None
     sb.quit.return_value = None
     return sb
 
