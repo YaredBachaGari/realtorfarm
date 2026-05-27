@@ -41,7 +41,7 @@ def collect_reo(
     records: list[dict[str, str]] = []
     candidates: list[dict] = []
 
-    # HUD Home Store — one Firecrawl call per zip
+    # HUD Home Store — one direct HTTP fetch per zip
     hud_r, hud_c = _collect_hud(city=city, zips=zips)
     records.extend(hud_r)
     candidates.extend(hud_c)
@@ -168,7 +168,7 @@ def _collect_browser_source(
 def _parse_hud_text(
     text: str, *, city: str, source_url: str
 ) -> tuple[list[dict[str, str]], list[dict]]:
-    """Parse Firecrawl markdown from HUD Home Store into records/candidates."""
+    """Parse fetched text from HUD Home Store into records/candidates."""
     records: list[dict[str, str]] = []
     candidates: list[dict] = []
     for block in re.split(r"\n\s*\n", text.strip()):
