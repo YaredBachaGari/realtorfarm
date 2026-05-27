@@ -1,4 +1,4 @@
-"""Collect NOTS/NOD/Liens from public legal notice publications via direct HTTP fetch."""
+"""Collect NOTS/NOD/Liens from public legal notice publications via Firecrawl."""
 from __future__ import annotations
 
 import tempfile
@@ -20,14 +20,14 @@ def collect_legal_notices(
     city: str,
     lookback_days: int = 1,
 ) -> tuple[list[dict[str, str]], list[dict]]:
-    """Fetch legal notice publications directly and extract target-city distress records.
+    """Scrape legal notice publications via Firecrawl and extract target-city distress records.
 
-    Note: lookback_days is forwarded from the orchestrator but the HTTP fetch always
-    returns the current page state. Legal notice publications aggregate recent filings,
-    so a wider lookback window naturally captures more history without explicit date filtering.
+    Note: lookback_days is forwarded from the orchestrator but Firecrawl always scrapes
+    the current page state. Legal notice publications aggregate recent filings, so a wider
+    lookback window naturally captures more history without explicit date filtering.
     """
     if lookback_days != 1:
-        print(f"[legal_notices] lookback_days={lookback_days} — fetch returns current page; broader lookback captures more publication history")
+        print(f"[legal_notices] lookback_days={lookback_days} — Firecrawl scrapes current page; broader lookback captures more publication history")
     temp_files: list[Path] = []
     source_paths: list[str] = []
 
@@ -35,7 +35,7 @@ def collect_legal_notices(
         try:
             text = scrape_url(url)
         except Exception as exc:
-            print(f"[legal_notices] fetch failed for {url}: {exc}")
+            print(f"[legal_notices] firecrawl failed for {url}: {exc}")
             continue
         if not text.strip():
             continue

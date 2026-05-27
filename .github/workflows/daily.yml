@@ -47,6 +47,7 @@ jobs:
       - name: Collect records
         if: ${{ github.event_name == 'schedule' || github.event.inputs.city == '' || github.event.inputs.city == matrix.city }}
         env:
+          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
           BROWSER_USE_API_KEY: ${{ secrets.BROWSER_USE_API_KEY }}
           BROWSER_USE_MAX_ENRICHMENTS: ${{ vars.BROWSER_USE_MAX_ENRICHMENTS || '10' }}
           RECORDER_DIRECT_ENABLED: ${{ vars.RECORDER_DIRECT_ENABLED || 'false' }}
